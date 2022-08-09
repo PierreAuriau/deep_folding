@@ -149,8 +149,8 @@ class GraphGenerateTransform:
     """
 
     def __init__(self, src_dir, transform_dir,
-                 side, parallel,
-                 path_to_graph):
+                 side, parallel, path_to_graph,
+                 session, run):
         self.src_dir = src_dir
         self.transform_dir = transform_dir
         self.side = side
@@ -158,6 +158,8 @@ class GraphGenerateTransform:
         self.path_to_graph = path_to_graph
         self.transform_dir = f"{self.transform_dir}/{self.side}"
         create_folder(abspath(self.transform_dir))
+        self.session = session
+        self.run = run
 
     def generate_one_transform(self, subject: str):
         """Generates and writes ICBM2009c transform for one subject.
@@ -172,7 +174,14 @@ class GraphGenerateTransform:
         graph_file = list_graph_file[0]
         transform_file = (
             f"{self.transform_dir}/"
-            f"{self.side}transform_to_ICBM2009c_{subject}.trm")
+            f"{self.side}transform_to_ICBM2009c_{subject}")
+        if self.session:
+            session = re.search("ses-([^_/]+)", graph_file)[1]
+            transform_file += f"_ses-{session}"
+        if self.run:
+            run = re.search("run-([^_/]+)", graph_file)[1]
+            transform_file += f"_run-{run}"
+        transform_file += ".trm"
 
         graph = aims.read(graph_file)
         g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
@@ -221,7 +230,9 @@ def generate_ICBM2009c_transforms(
         path_to_graph=_PATH_TO_GRAPH_DEFAULT,
         side=_SIDE_DEFAULT,
         parallel=False,
-        number_subjects=_ALL_SUBJECTS):
+        number_subjects=_ALL_SUBJECTS,
+        session=False,
+        run=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -230,7 +241,9 @@ def generate_ICBM2009c_transforms(
         transform_dir=transform_dir,
         path_to_graph=path_to_graph,
         side=side,
-        parallel=parallel
+        parallel=parallel,
+        session=session,
+        run=run
     )
     # Actual generation of skeletons from graphs
     transform.compute(number_subjects=number_subjects)

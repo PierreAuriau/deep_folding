@@ -155,7 +155,7 @@ class GraphConvert2Skeleton:
 
     def __init__(self, src_dir, skeleton_dir,
                  side, junction, parallel,
-                 path_to_graph):
+                 path_to_graph, session, run):
         self.src_dir = src_dir
         self.skeleton_dir = skeleton_dir
         self.side = side
@@ -163,6 +163,8 @@ class GraphConvert2Skeleton:
         self.parallel = parallel
         self.path_to_graph = path_to_graph
         self.skeleton_dir = f"{self.skeleton_dir}/{self.side}"
+        self.session = session
+        self.run = run
         create_folder(abspath(self.skeleton_dir))
 
     def generate_one_skeleton(self, subject: str):
@@ -176,9 +178,16 @@ class GraphConvert2Skeleton:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
         graph_file = list_graph_file[0]
-
+        
         skeleton_file = f"{self.skeleton_dir}/" +\
-                        f"{self.side}skeleton_generated_{subject}.nii.gz"
+                        f"{self.side}skeleton_generated_{subject}"
+        if self.session:
+            session = re.search("ses-([^_/]+)", graph_file)[1]
+            skeleton_file += f"_ses-{session}"
+        if self.run:
+            run = re.search("run-([^_/]+)", graph_file)[1]
+            skeleton_file += f"_run-{run}"
+        skeleton_file += ".nii.gz"
 
         generate_skeleton_from_graph_file(graph_file,
                                           skeleton_file,
@@ -223,7 +232,9 @@ def generate_skeletons(
         side=_SIDE_DEFAULT,
         junction=_JUNCTION_DEFAULT,
         parallel=False,
-        number_subjects=_ALL_SUBJECTS):
+        number_subjects=_ALL_SUBJECTS,
+        session=False,
+        run=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -233,7 +244,9 @@ def generate_skeletons(
         path_to_graph=path_to_graph,
         side=side,
         junction=junction,
-        parallel=parallel
+        parallel=parallel,
+        session=session,
+        run=run
     )
     # Actual generation of skeletons from graphs
     conversion.compute(number_subjects=number_subjects)
