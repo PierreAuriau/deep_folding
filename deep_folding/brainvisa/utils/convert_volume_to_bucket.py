@@ -46,7 +46,6 @@ from tqdm import tqdm
 
 def read_convert_write(vol_filename, bucket_filename, mask_dir=None):
     """Reads volume, converts and writes back bucket.
-
     Args:
         vol_filename [str]: path to input volume file
         bucket_filename [str]: path to output bucket file
@@ -57,11 +56,11 @@ def read_convert_write(vol_filename, bucket_filename, mask_dir=None):
         mask = aims.read(mask_dir)
         mask_arr = np.asarray(mask)
         # Apply mask
-        vol_arr[mask_arr==0] = 10
+        vol_arr[mask_arr == 0] = 10
 
         # Threshold distmap
-        vol_arr[vol_arr<=1] = 1
-        vol_arr[vol_arr>1] = 0
+        vol_arr[vol_arr <= 1] = 1
+        vol_arr[vol_arr > 1] = 0
         bucket_map = dtx.convert.volume_to_bucketMap_aims(vol_arr)
 
     else:
@@ -72,10 +71,8 @@ def read_convert_write(vol_filename, bucket_filename, mask_dir=None):
 
 def parse_args(argv):
     """Parses command-line arguments
-
     Args:
         argv: a list containing command line arguments
-
     Returns:
         args
     """
@@ -92,7 +89,10 @@ def parse_args(argv):
         help='Output directory where to put bucket files.')
     parser.add_argument(
         "-m", "--mask_dir", type=str, required=False,
-            help='Mask directory.')
+        help='Mask directory.')
+    parser.add_argument(
+        "-n", "--nb_subjects", type=str, required=False,
+        help="Number of subjects")
 
     args = parser.parse_args(argv)
 
@@ -102,7 +102,7 @@ def parse_args(argv):
 def get_basename_without_extension(filename):
     """Returns file basename without extension"""
     basename = os.path.basename(filename)
-    
+
     without_extension = basename.split('.')[0]
     return without_extension
 
@@ -112,12 +112,14 @@ def build_bucket_filename(subject, tgt_dir):
     return f"{tgt_dir}/{subject}.bck"
 
 
-def loop_over_directory(src_dir, tgt_dir, mask_dir):
+def loop_over_directory(src_dir, tgt_dir, mask_dir, nb_subjects=-1):
     """Loops conversion over input directory
     """
     # Gets and creates all filenames
     filenames = glob.glob(f"{src_dir}/*.nii.gz")
-    subjects = [get_basename_without_extension(filename) 
+    if nb_subjects > 0:
+        filenames = filenames[:nb_subjects]
+    subjects = [get_basename_without_extension(filename)
                 for filename in filenames]
     bucket_filenames = [
         build_bucket_filename(
@@ -138,7 +140,6 @@ def loop_over_directory(src_dir, tgt_dir, mask_dir):
 
 def main(argv):
     """Reads argument line and creates cropped files and pickle file
-
     Args:
         argv: a list containing command line arguments
     """
@@ -148,7 +149,11 @@ def main(argv):
     try:
         # Parsing arguments
         args = parse_args(argv)
-        loop_over_directory(args.src_dir, args.tgt_dir, args.mask_dir)
+        if args.nb_subjects is None or args.nb_subjects == "all":
+            nb_subjects = -1
+        else:
+            nb_subjects = int(args.nb_subjects)
+        loop_over_directory(args.src_dir, args.tgt_dir, args.mask_dir, nb_subjects)
     except SystemExit as exc:
         if exc.code != 0:
             six.reraise(*sys.exc_info())
