@@ -171,22 +171,22 @@ class GraphGenerateTransform:
         if len(list_graph_file) == 0:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
-        graph_file = list_graph_file[0]
-        transform_file = (
-            f"{self.transform_dir}/"
-            f"{self.side}transform_to_ICBM2009c_{subject}")
-        if self.session:
-            session = re.search("ses-([^_/]+)", graph_file)[1]
-            transform_file += f"_ses-{session}"
-        if self.run:
-            run = re.search("run-([^_/]+)", graph_file)[1]
-            transform_file += f"_run-{run}"
-        transform_file += ".trm"
+        for graph_file in list_graph_file:
+            transform_file = (
+                f"{self.transform_dir}/"
+                f"{self.side}transform_to_ICBM2009c_{subject}")
+            if self.session:
+                session = re.search("ses-([^_/]+)", graph_file)[1]
+                transform_file += f"_ses-{session}"
+            if self.run:
+                run = re.search("run-([^_/]+)", graph_file)[1]
+                transform_file += f"_run-{run}"
+            transform_file += ".trm"
 
-        graph = aims.read(graph_file)
-        g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
-            graph)
-        aims.write(g_to_icbm_template, transform_file)
+            graph = aims.read(graph_file)
+            g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
+                graph)
+            aims.write(g_to_icbm_template, transform_file)
 
     def compute(self, number_subjects):
         """Loops over subjects to generate transforms to ICBM2009c from graphs.

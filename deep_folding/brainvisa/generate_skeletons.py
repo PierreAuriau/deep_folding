@@ -177,21 +177,20 @@ class GraphConvert2Skeleton:
         if len(list_graph_file) == 0:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
-        graph_file = list_graph_file[0]
-        
-        skeleton_file = f"{self.skeleton_dir}/" +\
-                        f"{self.side}skeleton_generated_{subject}"
-        if self.session:
-            session = re.search("ses-([^_/]+)", graph_file)[1]
-            skeleton_file += f"_ses-{session}"
-        if self.run:
-            run = re.search("run-([^_/]+)", graph_file)[1]
-            skeleton_file += f"_run-{run}"
-        skeleton_file += ".nii.gz"
+        for graph_file in list_graph_file:
+            skeleton_file = f"{self.skeleton_dir}/" +\
+                            f"{self.side}skeleton_generated_{subject}"
+            if self.session:
+                session = re.search("ses-([^_/]+)", graph_file)[1]
+                skeleton_file += f"_ses-{session}"
+            if self.run:
+                run = re.search("run-([^_/]+)", graph_file)[1]
+                skeleton_file += f"_run-{run}"
+            skeleton_file += ".nii.gz"
 
-        generate_skeleton_from_graph_file(graph_file,
-                                          skeleton_file,
-                                          self.junction)
+            generate_skeleton_from_graph_file(graph_file,
+                                              skeleton_file,
+                                              self.junction)
 
     def compute(self, number_subjects):
         """Loops over subjects and converts graphs into skeletons.
