@@ -371,20 +371,17 @@ class SkeletonResampler(FileResampler):
 
         # Names of files in function of dictionary: keys -> 'subject' and 'side'
         # Src directory contains either 'R' or 'L' a subdirectory
-        #self.src_file = join(
-        #    self.src_dir,
-        #    '%(side)sskeleton_generated_%(subject)s.nii.gz')
         self.src_file = join(self.src_dir,
-                             f'%(side)s' + src_filename + '%(subject)s.nii.gz')
+                             f"%(side)s{src_filename}%(subject)s.nii.gz")
 
         # Names of files in function of dictionary: keys -> 'subject' and
         # 'side'
         self.resampled_file = join(
             self.resampled_dir,
-            f'%(side)s' + output_filename + '%(subject)s.nii.gz')
+            f"%(side)s{output_filename}%(subject)s.nii.gz")
 
         # subjects are detected as the nifti file names under src_dir
-        self.expr = '^.' + src_filename + '(.*).nii.gz$'
+        self.expr = f"^.{src_filename}(.*).nii.gz$"
         
     @staticmethod
     def resample_one_subject(src_file: str,
@@ -429,16 +426,16 @@ class FoldLabelResampler(FileResampler):
         # Src directory contains either 'R' or 'L' a subdirectory
         self.src_file = join(
             self.src_dir,
-            '%(side)s' + src_filename + '%(subject)s.nii.gz')
+            f"%(side)s{src_filename}%(subject)s.nii.gz")
 
         # Names of files in function of dictionary: keys -> 'subject' and
         # 'side'
         self.resampled_file = join(
             self.resampled_dir,
-            f'%(side)s' + output_filename + '%(subject)s.nii.gz')
+            f"%(side)s{output_filename}%(subject)s.nii.gz")
 
         # subjects are detected as the nifti file names under src_dir
-        self.expr = '^.' + src_filename + '(.*).nii.gz$'
+        self.expr = f"^.{src_filename}(.*).nii.gz$"
 
     @staticmethod
     def resample_one_subject(src_file: str,
