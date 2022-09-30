@@ -186,7 +186,7 @@ class GraphConvert2Skeleton:
                 skeleton_file += f"_ses-{session}"
             if self.acquisition:
                 acquisition = re.search("acq-([^_/]+)", graph_file)[1]
-                skeleton_file += f"_acq-{acq}"
+                skeleton_file += f"_acq-{acquisition}"
             if self.run:
                 run = re.search("run-([^_/]+)", graph_file)[1]
                 skeleton_file += f"_run-{run}"

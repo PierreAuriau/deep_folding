@@ -180,7 +180,7 @@ class GraphGenerateTransform:
                 session = re.search("ses-([^_/]+)", graph_file)[1]
                 transform_file += f"_ses-{session}"
             if self.acquisition:
-                acquisition = re.search("acq-([^_/]+), graph_file")[1]
+                acquisition = re.search("acq-([^_/]+)", graph_file)[1]
                 transform_file += f"_acq-{acquisition}"
             if self.run:
                 run = re.search("run-([^_/]+)", graph_file)[1]
