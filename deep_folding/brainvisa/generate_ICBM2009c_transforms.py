@@ -150,7 +150,7 @@ class GraphGenerateTransform:
 
     def __init__(self, src_dir, transform_dir,
                  side, parallel, path_to_graph,
-                 session, run):
+                 session, run, acquisition):
         self.src_dir = src_dir
         self.transform_dir = transform_dir
         self.side = side
@@ -160,6 +160,7 @@ class GraphGenerateTransform:
         create_folder(abspath(self.transform_dir))
         self.session = session
         self.run = run
+        self.acquisition = acquisition
 
     def generate_one_transform(self, subject: str):
         """Generates and writes ICBM2009c transform for one subject.
@@ -178,6 +179,9 @@ class GraphGenerateTransform:
             if self.session:
                 session = re.search("ses-([^_/]+)", graph_file)[1]
                 transform_file += f"_ses-{session}"
+            if self.acquisition:
+                acquisition = re.search("acq-([^_/]+), graph_file")[1]
+                transform_file += f"_acq-{acquisition}"
             if self.run:
                 run = re.search("run-([^_/]+)", graph_file)[1]
                 transform_file += f"_run-{run}"
@@ -232,7 +236,8 @@ def generate_ICBM2009c_transforms(
         parallel=False,
         number_subjects=_ALL_SUBJECTS,
         session=False,
-        run=False):
+        run=False,
+        acquisition=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -243,7 +248,8 @@ def generate_ICBM2009c_transforms(
         side=side,
         parallel=parallel,
         session=session,
-        run=run
+        run=run,
+        acquisition=acquisition
     )
     # Actual generation of skeletons from graphs
     transform.compute(number_subjects=number_subjects)

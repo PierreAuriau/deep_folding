@@ -155,7 +155,7 @@ class GraphConvert2Skeleton:
 
     def __init__(self, src_dir, skeleton_dir,
                  side, junction, parallel,
-                 path_to_graph, session, run):
+                 path_to_graph, session, run, acquisition):
         self.src_dir = src_dir
         self.skeleton_dir = skeleton_dir
         self.side = side
@@ -165,6 +165,7 @@ class GraphConvert2Skeleton:
         self.skeleton_dir = f"{self.skeleton_dir}/{self.side}"
         self.session = session
         self.run = run
+        self.acquisition = acquisition
         create_folder(abspath(self.skeleton_dir))
 
     def generate_one_skeleton(self, subject: str):
@@ -183,6 +184,9 @@ class GraphConvert2Skeleton:
             if self.session:
                 session = re.search("ses-([^_/]+)", graph_file)[1]
                 skeleton_file += f"_ses-{session}"
+            if self.acquisition:
+                acquisition = re.search("acq-([^_/]+)", graph_file)[1]
+                skeleton_file += f"_acq-{acq}"
             if self.run:
                 run = re.search("run-([^_/]+)", graph_file)[1]
                 skeleton_file += f"_run-{run}"
@@ -233,7 +237,8 @@ def generate_skeletons(
         parallel=False,
         number_subjects=_ALL_SUBJECTS,
         session=False,
-        run=False):
+        run=False,
+        acquisition=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -245,7 +250,8 @@ def generate_skeletons(
         junction=junction,
         parallel=parallel,
         session=session,
-        run=run
+        run=run,
+        acquisition=acquisition
     )
     # Actual generation of skeletons from graphs
     conversion.compute(number_subjects=number_subjects)
