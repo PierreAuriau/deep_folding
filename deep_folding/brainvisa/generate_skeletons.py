@@ -52,6 +52,8 @@ import re
 import sys
 from os.path import abspath
 from os.path import basename
+from os.path import dirname
+from os.path import join
 
 from deep_folding.brainvisa import exception_handler
 from deep_folding.brainvisa.utils.folder import create_folder
@@ -60,7 +62,7 @@ from deep_folding.brainvisa.utils.subjects import select_subjects_int
 from deep_folding.brainvisa.utils.logs import setup_log
 from deep_folding.brainvisa.utils.parallel import define_njobs
 from deep_folding.brainvisa.utils.skeleton import \
-    generate_skeleton_from_graph_file
+    generate_skeleton_from_graph_file, generate_full_skeleton
 from deep_folding.brainvisa.utils.quality_checks import \
     compare_number_aims_files_with_expected
 from pqdm.processes import pqdm
@@ -155,7 +157,7 @@ class GraphConvert2Skeleton:
 
     def __init__(self, src_dir, skeleton_dir,
                  side, junction, parallel,
-                 path_to_graph, session, run, acquisition):
+                 path_to_graph, bids):
         self.src_dir = src_dir
         self.skeleton_dir = skeleton_dir
         self.side = side
@@ -163,38 +165,69 @@ class GraphConvert2Skeleton:
         self.parallel = parallel
         self.path_to_graph = path_to_graph
         self.skeleton_dir = f"{self.skeleton_dir}/{self.side}"
-        self.session = session
-        self.run = run
-        self.acquisition = acquisition
         create_folder(abspath(self.skeleton_dir))
+        self.bids = bids
 
     def generate_one_skeleton(self, subject: str):
         """Generates and writes skeleton for one subject.
         """
-        graph_path = f"{self.src_dir}/{subject}*/" +\
-                     f"{self.path_to_graph}/{self.side}{subject}*.arg"
+        if self.side == "F":
+            graph_path = f"{self.src_dir}/{subject}*/" + \
+                         f"{self.path_to_graph}/?{subject}*.arg"
+        else:
+            graph_path = f"{self.src_dir}/{subject}*/" + \
+                         f"{self.path_to_graph}/{self.side}{subject}*.arg"
         list_graph_file = glob.glob(graph_path)
         log.debug(f"list_graph_file = {list_graph_file}")
         if len(list_graph_file) == 0:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
         for graph_file in list_graph_file:
-            skeleton_file = f"{self.skeleton_dir}/" +\
-                            f"{self.side}skeleton_generated_{subject}"
-            if self.session:
-                session = re.search("ses-([^_/]+)", graph_file)[1]
-                skeleton_file += f"_ses-{session}"
-            if self.acquisition:
-                acquisition = re.search("acq-([^_/]+)", graph_file)[1]
-                skeleton_file += f"_acq-{acquisition}"
-            if self.run:
-                run = re.search("run-([^_/]+)", graph_file)[1]
-                skeleton_file += f"_run-{run}"
-            skeleton_file += ".nii.gz"
+            skeleton_file = self.get_skeleton_filename(subject, graph_file)
+            if self.side == "F":
+                graph_name = basename(graph_file)
+                if graph_name[0] == "L":
+                    graph_file_left = graph_file
+                    graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
+                    if graph_file_right not in list_graph_file:
+                        log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
+                        continue
+                    else:
+                        list_graph_file.remove(graph_file_right)
+                else:
+                    graph_file_right = graph_file
+                    graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
+                    if graph_file_left not in list_graph_file:
+                        log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
+                        continue
+                    else:
+                        list_graph_file.remove(graph_file_left)
+                generate_full_skeleton(graph_file_left,
+                                       graph_file_right,
+                                       skeleton_file,
+                                       self.junction)
+            else:
+                generate_skeleton_from_graph_file(graph_file,
+                                                  skeleton_file,
+                                                  self.junction)
+            if not self.bids:
+                break
 
-            generate_skeleton_from_graph_file(graph_file,
-                                              skeleton_file,
-                                              self.junction)
+    def get_skeleton_filename(self, subject, graph_file):
+        skeleton_file = f"{self.skeleton_dir}/" + \
+                        f"{self.side}skeleton_generated_{subject}"
+        if self.bids:
+            session = re.search("ses-([^_/]+)", graph_file)
+            acquisition = re.search("acq-([^_/]+)", graph_file)
+            run = re.search("run-([^_/]+)", graph_file)
+            if session:
+                skeleton_file += f"_{session[0]}"
+            if acquisition:
+                skeleton_file += f"_{acquisition[0]}"
+            if run:
+                skeleton_file += f"_{run[0]}"
+        skeleton_file += ".nii.gz"
+        return skeleton_file
 
     def compute(self, number_subjects):
         """Loops over subjects and converts graphs into skeletons.
@@ -224,8 +257,12 @@ class GraphConvert2Skeleton:
                 self.generate_one_skeleton(sub)
 
         # Checks if there is expected number of generated files
-        compare_number_aims_files_with_expected(self.skeleton_dir,
-                                                list_subjects)
+        if self.bids:
+            list_graphs = [g for g in glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
+                           if not re.search('.minf$', g)]
+            compare_number_aims_files_with_expected(self.skeleton_dir, list_graphs)
+        else:
+            compare_number_aims_files_with_expected(self.skeleton_dir, list_subjects)
 
 
 def generate_skeletons(
@@ -236,9 +273,7 @@ def generate_skeletons(
         junction=_JUNCTION_DEFAULT,
         parallel=False,
         number_subjects=_ALL_SUBJECTS,
-        session=False,
-        run=False,
-        acquisition=False):
+        bids=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -249,10 +284,7 @@ def generate_skeletons(
         side=side,
         junction=junction,
         parallel=parallel,
-        session=session,
-        run=run,
-        acquisition=acquisition
-    )
+        bids=bids)
     # Actual generation of skeletons from graphs
     conversion.compute(number_subjects=number_subjects)
 

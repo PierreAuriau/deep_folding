@@ -47,17 +47,19 @@ from deep_folding.brainvisa.utils.constants import _JUNCTION_DEFAULT
 # Defines logger
 log = set_file_logger(__file__)
 
-def generate_skeleton_thin_junction(
-        graph: aims.Graph) -> aims.Volume:
-    """Converts an aims graph into skeleton volumes
 
+def generate_skeleton_thin_junction(
+        graph: aims.Graph, volume: aims.Volume) -> aims.Volume:
+    """Converts an aims graph into skeleton volumes
     It should produce thin junctions as vertices (aims_ss, aims_bottom)
     are written after edges (junction, plidepassage).
     Thus, when voxels are present in both, simple and bottom surfaces override
     junctions
     """
-    vol_skel = create_empty_volume_from_graph(graph)
+    vol_skel = volume
     arr_skel = np.asarray(vol_skel)
+
+    log.debug(f'Dimension of the empty volume : {np.shape(arr_skel)}')
 
     cnt_duplicate = 0
     cnt_total = 0
@@ -95,20 +97,25 @@ def generate_skeleton_thin_junction(
                     # if arr_skel[i, j, k] != 0:
                     #     cnt_duplicate += 1
                     arr_skel[i, j, k] = value
+
+    index = np.nonzero(arr_skel)
+    for i in range(len(index)):
+        log.debug(f'Dimension {i} :' +
+                  f'(Min {np.min(index[i])}, ' +
+                  f'Max {np.max(index[i])})')
 
     return vol_skel
 
 
 def generate_skeleton_wide_junction(
-        graph: aims.Graph) -> aims.Volume:
+        graph: aims.Graph, volume: aims.Volume) -> aims.Volume:
     """Converts an aims graph into skeleton volumes
-
     It should produce wide junctions as edges (junction, plidepassage)
     are written after vertices (aims_ss, aims_bottom).
     Thus, when voxels are present in both, junction voxels override
     simple surface and bottom voxels
     """
-    vol_skel = create_empty_volume_from_graph(graph)
+    vol_skel = volume
     arr_skel = np.asarray(vol_skel)
 
     cnt_duplicate = 0
@@ -149,7 +156,6 @@ def generate_skeleton_wide_junction(
                     arr_skel[i, j, k] = value
 
     return vol_skel
-
 
 def generate_skeleton_from_graph(graph: aims.Graph,
                                  junction: str = _JUNCTION_DEFAULT) -> aims.Volume:
@@ -168,3 +174,50 @@ def generate_skeleton_from_graph_file(graph_file: str,
     graph = aims.read(graph_file)
     vol_skeleton = generate_skeleton_from_graph(graph, junction)
     aims.write(vol_skeleton, skeleton_file)
+
+
+def generate_full_skeleton(graph_file_left: str,
+                           graph_file_right: str,
+                           skeleton_file: str,
+                           junction: str = _JUNCTION_DEFAULT) -> bool:
+    """Generates full skeleton from right and left graph files"""
+    graph_left = aims.read(graph_file_left)
+    graph_right = aims.read(graph_file_right)
+
+    # Sanity check
+    keys_to_check = ['voxel_size', 'transformations', 'referentials', 'referential']
+    for k in keys_to_check:
+        if graph_left[k] != graph_right[k]:
+            log.error("Generation of full skeleton aborted")
+            log.error(f"The attribute {k} is not the same in the right graph ({graph_right[k]}) "
+                      f"and in the left graph ({graph_left[k]})")
+            return 0
+
+    boundingbox_max_left = np.asarray(graph_left["boundingbox_max"])
+    boundingbox_max_right = np.asarray(graph_right["boundingbox_max"])
+    boundingbox_max = np.maximum(boundingbox_max_left, boundingbox_max_right)
+    log.debug("Boundingbox max : ", boundingbox_max)
+
+    # create_empty_volume_from_graph with the new dimensions
+    dimensions = (boundingbox_max[0] + 1,
+                  boundingbox_max[1] + 1,
+                  boundingbox_max[2] + 1,
+                  1)
+    vol_skeleton = create_empty_volume_from_graph(graph, dimensions=dimensions)
+
+    if junction == 'wide':
+        vol_skeleton = generate_skeleton_wide_junction(graph_left, vol_skeleton)
+        vol_skeleton = generate_skeleton_wide_junction(graph_right, vol_skeleton)
+    else:
+        vol_skeleton = generate_skeleton_thin_junction(graph_left, vol_skeleton)
+        vol_skeleton = generate_skeleton_thin_junction(graph_right, vol_skeleton)
+
+    # Sanity check
+    arr_skeleton = np.asarray(vol_skeleton)
+    log.debug("Unique value of the skeleton : " + str(np.unique(arr_skeleton)))
+    assert np.isin(arr_skeleton, [0, 30, 60, 100, 110, 120]).all()
+
+    aims.write(vol_skeleton, skeleton_file)
+
+    return 1
+

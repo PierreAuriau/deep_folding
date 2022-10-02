@@ -52,6 +52,8 @@ import sys
 import re
 from os.path import abspath
 from os.path import basename
+from os.path import join
+from os.path import dirname
 
 from deep_folding.brainvisa import exception_handler
 from deep_folding.brainvisa.utils.folder import create_folder
@@ -150,7 +152,7 @@ class GraphGenerateTransform:
 
     def __init__(self, src_dir, transform_dir,
                  side, parallel, path_to_graph,
-                 session, run, acquisition):
+                 bids):
         self.src_dir = src_dir
         self.transform_dir = transform_dir
         self.side = side
@@ -158,39 +160,77 @@ class GraphGenerateTransform:
         self.path_to_graph = path_to_graph
         self.transform_dir = f"{self.transform_dir}/{self.side}"
         create_folder(abspath(self.transform_dir))
-        self.session = session
-        self.run = run
-        self.acquisition = acquisition
+        self.bids = bids
 
     def generate_one_transform(self, subject: str):
         """Generates and writes ICBM2009c transform for one subject.
         """
-        graph_path = f"{self.src_dir}/{subject}*/" +\
-                     f"{self.path_to_graph}/{self.side}{subject}*.arg"
+        if self.side == "F":
+            graph_path = f"{self.src_dir}/{subject}*/" + \
+                         f"{self.path_to_graph}/?{subject}*.arg"
+        else:
+            graph_path = f"{self.src_dir}/{subject}*/" + \
+                         f"{self.path_to_graph}/{self.side}{subject}*.arg"
         list_graph_file = glob.glob(graph_path)
         log.debug(f"list_graph_file = {list_graph_file}")
         if len(list_graph_file) == 0:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
         for graph_file in list_graph_file:
-            transform_file = (
-                f"{self.transform_dir}/"
-                f"{self.side}transform_to_ICBM2009c_{subject}")
-            if self.session:
-                session = re.search("ses-([^_/]+)", graph_file)[1]
-                transform_file += f"_ses-{session}"
-            if self.acquisition:
-                acquisition = re.search("acq-([^_/]+)", graph_file)[1]
-                transform_file += f"_acq-{acquisition}"
-            if self.run:
-                run = re.search("run-([^_/]+)", graph_file)[1]
-                transform_file += f"_run-{run}"
-            transform_file += ".trm"
+            transform_file = self.get_transform_filename(subject, graph_file)
+            if self.side == "F":
+                graph_name = basename(graph_file)
+                if graph_name[0] == "L":
+                    graph_file_left = graph_file
+                    graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
+                    if graph_file_right not in list_graph_file:
+                        log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
+                        continue
+                    else:
+                        list_graph_file.remove(graph_file_right)
+                else:
+                    graph_file_right = graph_file
+                    graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
+                    if graph_file_left not in list_graph_file:
+                        log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
+                        continue
+                    else:
+                        list_graph_file.remove(graph_file_left)
+                graph_left = aims.read(graph_file_left)
+                graph_right = aims.read(graph_file_right)
+                g_to_icbm_template_left = aims.GraphManip.getICBM2009cTemplateTransform(
+                    graph_left)
+                g_to_icbm_template_right = aims.GraphManip.getICBM2009cTemplateTransform(
+                    graph_right)
+                if g_to_icbm_template_left == g_to_icbm_template_right:
+                    aims.write(g_to_icbm_template_left, transform_file)
+                else:
+                    log.error(f"The subject {subject} has different left and right transformations files :"
+                              f"{g_to_icbm_template_left} and {g_to_icbm_template_right}")
+            else:
+                graph = aims.read(graph_file)
+                g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
+                    graph)
+                aims.write(g_to_icbm_template, transform_file)
+            if not self.bids:
+                break
 
-            graph = aims.read(graph_file)
-            g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
-                graph)
-            aims.write(g_to_icbm_template, transform_file)
+    def get_transform_filename(self, subject, graph_file):
+        transform_file = (
+            f"{self.transform_dir}/"
+            f"{self.side}transform_to_ICBM2009c_{subject}")
+        if self.bids:
+            session = re.search("ses-([^_/]+)", graph_file)
+            acquisition = re.search("acq-([^_/]+)", graph_file)
+            run = re.search("run-([^_/]+)", graph_file)
+            if session:
+                transform_file += f"_{session[0]}"
+            if acquisition:
+                transform_file += f"_{acquisition[0]}"
+            if run:
+                transform_file += f"_{run[0]}"
+        transform_file += ".trm"
+        return transform_file
 
     def compute(self, number_subjects):
         """Loops over subjects to generate transforms to ICBM2009c from graphs.
@@ -224,8 +264,13 @@ class GraphGenerateTransform:
                 self.generate_one_transform(sub)
 
         # Checks if there is expected number of generated files
-        compare_number_aims_files_with_expected(self.transform_dir,
-                                                list_subjects)
+        if self.bids:
+            list_graphs = [g for g in glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
+                           if not re.search('.minf$', g)]
+            compare_number_aims_files_with_expected(self.transform_dir, list_graphs)
+        else:
+            compare_number_aims_files_with_expected(self.transform_dir,
+                                                    list_subjects)
 
 
 def generate_ICBM2009c_transforms(
@@ -235,9 +280,7 @@ def generate_ICBM2009c_transforms(
         side=_SIDE_DEFAULT,
         parallel=False,
         number_subjects=_ALL_SUBJECTS,
-        session=False,
-        run=False,
-        acquisition=False):
+        bids=False):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -247,9 +290,7 @@ def generate_ICBM2009c_transforms(
         path_to_graph=path_to_graph,
         side=side,
         parallel=parallel,
-        session=session,
-        run=run,
-        acquisition=acquisition
+        bids=bids
     )
     # Actual generation of skeletons from graphs
     transform.compute(number_subjects=number_subjects)
