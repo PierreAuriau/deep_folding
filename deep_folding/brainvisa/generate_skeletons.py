@@ -185,27 +185,13 @@ class GraphConvert2Skeleton:
         for graph_file in list_graph_file:
             skeleton_file = self.get_skeleton_filename(subject, graph_file)
             if self.side == "F":
-                graph_name = basename(graph_file)
-                if graph_name[0] == "L":
-                    graph_file_left = graph_file
-                    graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
-                    if graph_file_right not in list_graph_file:
-                        log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
-                        continue
-                    else:
-                        list_graph_file.remove(graph_file_right)
-                else:
-                    graph_file_right = graph_file
-                    graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
-                    if graph_file_left not in list_graph_file:
-                        log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
-                        continue
-                    else:
-                        list_graph_file.remove(graph_file_left)
-                generate_full_skeleton(graph_file_left,
-                                       graph_file_right,
-                                       skeleton_file,
-                                       self.junction)
+                graph_file_left, graph_file_left, graph_to_remove = self.get_left_and_right_graph_files(graph_file)
+                if graph_to_remove:
+                    list_graph_file.remove(graph_to_remove)
+                    generate_full_skeleton(graph_file_left,
+                                           graph_file_right,
+                                           skeleton_file,
+                                           self.junction)
             else:
                 generate_skeleton_from_graph_file(graph_file,
                                                   skeleton_file,
@@ -228,6 +214,26 @@ class GraphConvert2Skeleton:
                 skeleton_file += f"_{run[0]}"
         skeleton_file += ".nii.gz"
         return skeleton_file
+
+    def get_left_and_right_graph_files(self, graph_file):
+        graph_name = basename(graph_file)
+        if graph_name[0] == "L":
+            graph_file_left = graph_file
+            graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
+            if graph_file_right not in list_graph_file:
+                log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
+                return str(), str(), str()
+            else:
+                graph_to_remove = graph_file_right
+        else:
+            graph_file_right = graph_file
+            graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
+            if graph_file_left not in list_graph_file:
+                log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
+                return str(), str(), str()
+            else:
+                graph_to_remove = graph_file_left
+        return graph_file_left, graph_file_right, graph_to_remove
 
     def compute(self, number_subjects):
         """Loops over subjects and converts graphs into skeletons.
