@@ -64,3 +64,49 @@ def compare_number_aims_files_with_expected(output_dir: str,
 
     if nb_generated_files != nb_expected_files:
         log.warning("Number of generated files != number of expected files")
+        if nb_generated_files < nb_expected_files:
+            compare_subjects_with_expectd(generated_files, list_subjects)
+
+
+def compare_subjects_with_expected(generated_files: list,
+                                   list_subjects: list):
+    """ Compare the sujbects from generated files and from list of subjects"""
+
+    # Find a subject and its generated file to make the connection
+    is_generated = False
+    i = -1
+    while not is_generated:
+        i += 1
+        sbj = list_subjects[i]
+        for file in generated_files:
+            match = re.search(sbj, file)
+            if match:
+                index = match.span(0)
+                is_generated = True
+                break
+
+    # List all subjects with a generated file
+    generated_subjects = [file[index[0]:index[1]] for file in generated_files]
+
+    not_generated_subjects = set(list_subjects) - set(generated_subjects)
+
+    log.warning(f"Subjects without generated file : {not_generated_subjects}")
+
+
+def compare_output_folders(output_dir1, output_dir2):
+    """ Compare the content of two output folders"""
+    dcmp = dircmp(output_dir1, output_dir2)
+
+    def compare_files(dcmp):
+        for name in dcmp.left_only:
+            fileordir = "file" if os.path.isfile(join(dcmp.left, name)) else "subdirectory"
+            log.warning(f"The {fileordir} {name} is only in the directory {dcmp.left}")
+        for name in dcmp.right_only:
+            fileordir = "file" if os.path.isfile(join(dcmp.right, name)) else "subdirectory"
+            log.warning(f"The {fileordir} {name} is only in the directory {dcmp.right}")
+        for name in dcmp.diff_files:
+            log.warning(f"The file {name} is not the same in {dcmp.left} and {dcmp.right}")
+        for sub_dcmp in dcmp.subdirs.values():
+            compare_files(sub_dcmp)
+
+    compare_files(dcmp=dcmp)
