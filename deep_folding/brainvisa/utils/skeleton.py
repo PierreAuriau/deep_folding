@@ -157,13 +157,15 @@ def generate_skeleton_wide_junction(
 
     return vol_skel
 
+
 def generate_skeleton_from_graph(graph: aims.Graph,
                                  junction: str = _JUNCTION_DEFAULT) -> aims.Volume:
     """Generates skeleton from graph"""
+    volume = create_empty_volume_from_graph(graph)
     if junction == 'wide':
-        vol_skel = generate_skeleton_wide_junction(graph)
+        vol_skel = generate_skeleton_wide_junction(graph, volume)
     else:
-        vol_skel = generate_skeleton_thin_junction(graph)
+        vol_skel = generate_skeleton_thin_junction(graph, volume)
     return vol_skel
 
 
@@ -193,24 +195,26 @@ def generate_full_skeleton(graph_file_left: str,
                       f"and in the left graph ({graph_left[k]})")
             return 0
 
+    # Get the dimensions of the volume
     boundingbox_max_left = np.asarray(graph_left["boundingbox_max"])
     boundingbox_max_right = np.asarray(graph_right["boundingbox_max"])
     boundingbox_max = np.maximum(boundingbox_max_left, boundingbox_max_right)
     log.debug("Boundingbox max : ", boundingbox_max)
 
-    # create_empty_volume_from_graph with the new dimensions
+    # Create an empty volume with the new dimensions
     dimensions = (boundingbox_max[0] + 1,
                   boundingbox_max[1] + 1,
                   boundingbox_max[2] + 1,
                   1)
-    vol_skeleton = create_empty_volume_from_graph(graph, dimensions=dimensions)
+    empty_vol = create_empty_volume_from_graph(graph, dimensions=dimensions)
 
+    # Generate the skeleton according to the junction
     if junction == 'wide':
-        vol_skeleton = generate_skeleton_wide_junction(graph_left, vol_skeleton)
-        vol_skeleton = generate_skeleton_wide_junction(graph_right, vol_skeleton)
+        vol_skeleton = generate_skeleton_wide_junction(graph_left, empty_vol)
+        vol_skeleton += generate_skeleton_wide_junction(graph_right, empty_vol)
     else:
-        vol_skeleton = generate_skeleton_thin_junction(graph_left, vol_skeleton)
-        vol_skeleton = generate_skeleton_thin_junction(graph_right, vol_skeleton)
+        vol_skeleton = generate_skeleton_thin_junction(graph_left, empty_vol)
+        vol_skeleton += generate_skeleton_thin_junction(graph_right, empty_vol)
 
     # Sanity check
     arr_skeleton = np.asarray(vol_skeleton)
