@@ -51,8 +51,8 @@ def compare_number_aims_files_with_expected(output_dir: str,
 
     all_files = glob.glob(f"{output_dir}/*")
 
-    generated_files = [f for f in all_files 
-                         if not re.search('.minf$', f)]
+    generated_files = [f for f in all_files
+                       if not re.search('.minf$', f)]
     log.debug(f"Output directory = {output_dir}")
     log.debug(f"Generated_files = {generated_files}")
 
@@ -65,32 +65,35 @@ def compare_number_aims_files_with_expected(output_dir: str,
     if nb_generated_files != nb_expected_files:
         log.warning("Number of generated files != number of expected files")
         if nb_generated_files < nb_expected_files:
-            compare_subjects_with_expectd(generated_files, list_subjects)
+            compare_subjects_with_expected(generated_files, list_subjects)
 
 
 def compare_subjects_with_expected(generated_files: list,
                                    list_subjects: list):
     """ Compare the sujbects from generated files and from list of subjects"""
 
+    log.debug("List of subjects : ", list_subjects)
     # Find a subject and its generated file to make the connection
     is_generated = False
-    i = -1
-    while not is_generated:
-        i += 1
-        sbj = list_subjects[i]
+    for sbj in list_subjects:
         for file in generated_files:
             match = re.search(sbj, file)
             if match:
                 index = match.span(0)
                 is_generated = True
                 break
+        if is_generated:
+            break
+    
+    if is_generated:
+        # List all subjects with a generated file
+        generated_subjects = [re.split("[_.]+", file[index[0]:])[0] for file in generated_files]
 
-    # List all subjects with a generated file
-    generated_subjects = [file[index[0]:index[1]] for file in generated_files]
+        not_generated_subjects = set(list_subjects) - set(generated_subjects)
 
-    not_generated_subjects = set(list_subjects) - set(generated_subjects)
-
-    log.warning(f"Subjects without generated file : {not_generated_subjects}")
+        log.warning(f"Subjects without generated file : {not_generated_subjects}")
+    else:
+        log.warning("None of the subjects has a generated file")
 
 
 def compare_output_folders(output_dir1, output_dir2):
