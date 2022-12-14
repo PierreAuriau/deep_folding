@@ -215,6 +215,7 @@ class GraphConvert2Skeleton:
         skeleton_file += ".nii.gz"
         return skeleton_file
 
+
     def get_left_and_right_graph_files(self, graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
@@ -241,7 +242,7 @@ class GraphConvert2Skeleton:
         # Gets list fo subjects
         filenames = glob.glob(f"{self.src_dir}/*")
         list_subjects = [basename(filename) for filename in filenames 
-                    if not re.search('.minf$', filename)]
+                         if not re.search('.minf$', filename)]
         list_subjects = select_subjects_int(list_subjects, number_subjects)
 
         log.info(f"Expected number of subjects = {len(list_subjects)}")
@@ -264,8 +265,9 @@ class GraphConvert2Skeleton:
 
         # Checks if there is expected number of generated files
         if self.bids:
-            list_graphs = [g for g in glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
-                           if not re.search('.minf$', g)]
+            list_graphs = []
+            for sub in list_subjects:
+                list_graphs += [sub for _ in glob.glob(f"{self.src_dir}/{sub}/{self.path_to_graph}")]
             compare_number_aims_files_with_expected(self.skeleton_dir, list_graphs)
         else:
             compare_number_aims_files_with_expected(self.skeleton_dir, list_subjects)
