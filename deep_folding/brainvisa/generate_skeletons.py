@@ -186,7 +186,7 @@ class GraphConvert2Skeleton:
             skeleton_file = self.get_skeleton_filename(subject, graph_file)
             if self.side == "F":
                 graph_file_left, graph_file_right, graph_to_remove = \
-                    self.get_left_and_right_graph_files(graph_file, list_graph_file)
+                    self.get_left_and_right_graph_files(subject, graph_file, list_graph_file)
                 if graph_to_remove:
                     list_graph_file.remove(graph_to_remove)
                     generate_full_skeleton(graph_file_left,
@@ -216,7 +216,7 @@ class GraphConvert2Skeleton:
         skeleton_file += ".nii.gz"
         return skeleton_file
 
-    def get_left_and_right_graph_files(self, graph_file, list_graph_file):
+    def get_left_and_right_graph_files(self, subject, graph_file, list_graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
             graph_file_left = graph_file
