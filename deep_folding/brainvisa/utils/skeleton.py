@@ -195,31 +195,54 @@ def generate_full_skeleton(graph_file_left: str,
                       f"and in the left graph ({graph_left[k]})")
             return 0
 
-    # Get the dimensions of the volume
+    # Get the dimensions for the new volume
     boundingbox_max_left = np.asarray(graph_left["boundingbox_max"])
     boundingbox_max_right = np.asarray(graph_right["boundingbox_max"])
     boundingbox_max = np.maximum(boundingbox_max_left, boundingbox_max_right)
-    log.debug("Boundingbox max : ", boundingbox_max)
+    log.debug("Boundingbox max : " + str(boundingbox_max))
 
-    # Create an empty volume with the new dimensions
+    # Create empty volumes with the new dimensions
     dimensions = (boundingbox_max[0] + 1,
                   boundingbox_max[1] + 1,
                   boundingbox_max[2] + 1,
                   1)
-    empty_vol = create_empty_volume_from_graph(graph, dimensions=dimensions)
+    empty_vol_left = create_empty_volume_from_graph(graph_left, dimensions=dimensions)
+    empty_vol_right = create_empty_volume_from_graph(graph_right, dimensions=dimensions)
+    vol_skeleton = create_empty_volume_from_graph(graph_right, dimensions=dimensions)
 
-    # Generate the skeleton according to the junction
+    # Generate the skeletons according to the junction
     if junction == 'wide':
-        vol_skeleton = generate_skeleton_wide_junction(graph_left, empty_vol)
-        vol_skeleton += generate_skeleton_wide_junction(graph_right, empty_vol)
+        vol_skeleton_left = generate_skeleton_wide_junction(graph_left, empty_vol_left)
+        vol_skeleton_right = generate_skeleton_wide_junction(graph_right, empty_vol_right)
+        priority_order = {0: 6, 30: 1, 60: 2, 100: 3, 110: 5, 120: 4}
     else:
-        vol_skeleton = generate_skeleton_thin_junction(graph_left, empty_vol)
-        vol_skeleton += generate_skeleton_thin_junction(graph_right, empty_vol)
+        vol_skeleton_left = generate_skeleton_thin_junction(graph_left, empty_vol_left)
+        vol_skeleton_right = generate_skeleton_thin_junction(graph_right, empty_vol_right)
+        priority_order = {0: 6, 30: 3, 60: 4, 100: 5, 110: 2, 120: 1}
+
+    # FIXME : find the right priority order
+    arr_skeleton_left = np.asarray(vol_skeleton_left)
+    arr_skeleton_right = np.asarray(vol_skeleton_right)
+    arr_skeleton = np.asarray(vol_skeleton)
+
+    # Add the left and right skeletons
+    # For contentious voxels (voxels which have two different values in the two skeletons),
+    # the value is chosen according to the priority order
+    vectorize = np.vectorize(lambda x: priority_order[x])
+    mask = vectorize(array_skeleton_right) >= vectorize(array_skeleton_left)
+    arr_skeleton[mask] = arr_skeleton_left[mask]
+    arr_skeleton[~mask] = arr_skeleton_right[~mask]
+    arr_skeleton = arr_skeleton.astype(int)
 
     # Sanity check
-    arr_skeleton = np.asarray(vol_skeleton)
-    log.debug("Unique value of the skeleton : " + str(np.unique(arr_skeleton)))
-    assert np.isin(arr_skeleton, [0, 30, 60, 100, 110, 120]).all()
+    # FIXME : select good threshold -> return 0 in case of exceeding
+    threshold = 20
+    nb_contentious_voxels  = np.count_nonzero(np.logical_and(arr_skeleton_left, arr_skeleton_right))
+    log.debug(f"Unique value of the skeleton : {np.unique(arr_skeleton)}")
+    log.debug(f"Number of conflict voxels between left and right skeletons : {nb_contentious_voxels}")
+    if nb_contentious_voxels > threshold:
+        log.warning(f"Left and right graph files have {nb_contentious_voxels} voxels with different values !"
+                    f"Graph files : {graph_file_left} and {graph_file_left}")
 
     aims.write(vol_skeleton, skeleton_file)
 
