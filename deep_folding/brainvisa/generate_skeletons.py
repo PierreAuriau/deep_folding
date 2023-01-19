@@ -113,6 +113,10 @@ def parse_args(argv):
         help='junction rendering (either \'wide\' or \'thin\') '
              f"Default is {_JUNCTION_DEFAULT}")
     parser.add_argument(
+        "-b", "--bids", default=False, action='store_true',
+        help='If the database is organized according to BIDS rules.'
+             'In particular, for databases having several images for each subject. ')
+    parser.add_argument(
         "-a", "--parallel", default=False, action='store_true',
         help='if set (-a), launches computation in parallel')
     parser.add_argument(
@@ -120,9 +124,6 @@ def parse_args(argv):
         help='Number of subjects to take into account, or \'all\'. '
              '0 subject is allowed, for debug purpose.'
              'Default is : all')
-    parser.add_argument(
-        "-b", "--bids", default=False, action='store_true',
-        help='Bids Format')
     parser.add_argument(
         '-v', '--verbose', action='count', default=0,
         help='Verbose mode: '
@@ -137,17 +138,12 @@ def parse_args(argv):
               prog_name=basename(__file__),
               suffix='right' if args.side == 'R' else 'left')
 
-    params = {}
+    params = vars(args)
 
     params['src_dir'] = abspath(args.src_dir)
     params['skeleton_dir'] = abspath(args.output_dir)
-    params['path_to_graph'] = args.path_to_graph
-    params['side'] = args.side
-    params['junction'] = args.junction
-    params['parallel'] = args.parallel
     # Checks if nb_subjects is either the string "all" or a positive integer
     params['nb_subjects'] = get_number_subjects(args.nb_subjects)
-    params['bids'] = args.bids
 
     return params
 
@@ -283,9 +279,9 @@ def generate_skeletons(
         path_to_graph=_PATH_TO_GRAPH_DEFAULT,
         side=_SIDE_DEFAULT,
         junction=_JUNCTION_DEFAULT,
+        bids=False,
         parallel=False,
-        number_subjects=_ALL_SUBJECTS,
-        bids=False):
+        number_subjects=_ALL_SUBJECTS):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -295,8 +291,8 @@ def generate_skeletons(
         path_to_graph=path_to_graph,
         side=side,
         junction=junction,
-        parallel=parallel,
-        bids=bids)
+        bids=bids,
+        parallel=parallel)
     # Actual generation of skeletons from graphs
     conversion.compute(number_subjects=number_subjects)
 
@@ -318,9 +314,9 @@ def main(argv):
         path_to_graph=params['path_to_graph'],
         side=params['side'],
         junction=params['junction'],
+        bids=params['bids'],
         parallel=params['parallel'],
-        number_subjects=params['nb_subjects'],
-        bids=params['bids'])
+        number_subjects=params['nb_subjects'])
 
 
 if __name__ == '__main__':

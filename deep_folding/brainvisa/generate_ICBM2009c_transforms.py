@@ -109,6 +109,10 @@ def parse_args(argv):
         help='Relative path to graph. '
              'Default is ' + _PATH_TO_GRAPH_DEFAULT)
     parser.add_argument(
+        "-b", "--bids", default=False, action='store_true',
+        help='If the database is organized according to BIDS rules.'
+             'In particular, for databases having several images for each subject. ')
+    parser.add_argument(
         "-a", "--parallel", default=False, action='store_true',
         help='if set (-a), launches computation in parallel')
     parser.add_argument(
@@ -130,13 +134,10 @@ def parse_args(argv):
               prog_name=basename(__file__),
               suffix='right' if args.side == 'R' else 'left')
 
-    params = {}
+    params = vars(args)
 
     params['src_dir'] = abspath(args.src_dir)
     params['transform_dir'] = abspath(args.output_dir)
-    params['path_to_graph'] = args.path_to_graph
-    params['side'] = args.side
-    params['parallel'] = args.parallel
     # Checks if nb_subjects is either the string "all" or a positive integer
     params['nb_subjects'] = get_number_subjects(args.nb_subjects)
 
@@ -284,9 +285,9 @@ def generate_ICBM2009c_transforms(
         transform_dir=_TRANSFORM_DIR_DEFAULT,
         path_to_graph=_PATH_TO_GRAPH_DEFAULT,
         side=_SIDE_DEFAULT,
+        bids=False,
         parallel=False,
-        number_subjects=_ALL_SUBJECTS,
-        bids=False):
+        number_subjects=_ALL_SUBJECTS):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -295,9 +296,8 @@ def generate_ICBM2009c_transforms(
         transform_dir=transform_dir,
         path_to_graph=path_to_graph,
         side=side,
-        parallel=parallel,
-        bids=bids
-    )
+        bids=bids,
+        parallel=parallel)
     # Actual generation of skeletons from graphs
     transform.compute(number_subjects=number_subjects)
 
@@ -318,6 +318,7 @@ def main(argv):
         transform_dir=params['transform_dir'],
         path_to_graph=params['path_to_graph'],
         side=params['side'],
+        bids=params['bids'],
         parallel=params['parallel'],
         number_subjects=params['nb_subjects'])
 
