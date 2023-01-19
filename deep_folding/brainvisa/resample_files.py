@@ -84,10 +84,10 @@ from deep_folding.brainvisa.utils.constants import \
     _TRANSFORM_DIR_DEFAULT, _RESAMPLED_SKELETON_DIR_DEFAULT,\
     _SIDE_DEFAULT, _VOXEL_SIZE_DEFAULT
 
-_SKELETON_FILENAME = "skeleton_generated_"
-_FOLDLABEL_FILENAME = "foldlabel_"
-_RESAMPLED_SKELETON_FILENAME = "resampled_skeleton_"
-_RESAMPELD_FOLDLABEL_FILENAME = "resampled_foldlabel_"
+_SKELETON_FILENAME = "skeleton_generated"
+_FOLDLABEL_FILENAME = "foldlabel"
+_RESAMPLED_SKELETON_FILENAME = "resampled_skeleton"
+_RESAMPELD_FOLDLABEL_FILENAME = "resampled_foldlabel"
 
 # Defines logger
 log = set_file_logger(__file__)
@@ -361,8 +361,8 @@ class SkeletonResampler(FileResampler):
             side: either 'L' or 'R', hemisphere side
             out_voxel_size: float giving voxel size in mm
             parallel: does parallel computation if True
-            src_filename : name of skeleton files (format : "<SIDE><src_filename><SUBJECT>.nii.gz")
-            output_filename : name of generated files (format : "<SIDE><output_filename><SUBJECT>.nii.gz")
+            src_filename : name of skeleton files (format : "<SIDE><src_filename>_<SUBJECT>.nii.gz")
+            output_filename : name of generated files (format : "<SIDE><output_filename>_<SUBJECT>.nii.gz")
         """
         super(SkeletonResampler, self).__init__(
             src_dir=src_dir, resampled_dir=resampled_dir,
@@ -371,20 +371,17 @@ class SkeletonResampler(FileResampler):
 
         # Names of files in function of dictionary: keys -> 'subject' and 'side'
         # Src directory contains either 'R' or 'L' a subdirectory
-        #self.src_file = join(
-        #    self.src_dir,
-        #    '%(side)sskeleton_generated_%(subject)s.nii.gz')
         self.src_file = join(self.src_dir,
-                             f'%(side)s' + src_filename + '%(subject)s.nii.gz')
+                             f"%(side)s{src_filename}_%(subject)s.nii.gz")
 
         # Names of files in function of dictionary: keys -> 'subject' and
         # 'side'
         self.resampled_file = join(
             self.resampled_dir,
-            f'%(side)s' + output_filename + '%(subject)s.nii.gz')
+            f"%(side)s{output_filename}_%(subject)s.nii.gz")
 
         # subjects are detected as the nifti file names under src_dir
-        self.expr = '^.' + src_filename + '(.*).nii.gz$'
+        self.expr = f"^.{src_filename}_(.*).nii.gz$"
         
     @staticmethod
     def resample_one_subject(src_file: str,
@@ -417,8 +414,8 @@ class FoldLabelResampler(FileResampler):
             side: either 'L' or 'R', hemisphere side
             out_voxel_size: float giving voxel size in mm
             parallel: does parallel computation if True
-            src_filename : name of fold label files (format : "<SIDE><src_filename><SUBJECT>.nii.gz")
-            output_filename : name of generated files (format : "<SIDE><output_filename><SUBJECT>.nii.gz")
+            src_filename : name of fold label files (format : "<SIDE><src_filename>_<SUBJECT>.nii.gz")
+            output_filename : name of generated files (format : "<SIDE><output_filename>_<SUBJECT>.nii.gz")
         """
         super(FoldLabelResampler, self).__init__(
             src_dir=src_dir, resampled_dir=resampled_dir,
@@ -429,16 +426,16 @@ class FoldLabelResampler(FileResampler):
         # Src directory contains either 'R' or 'L' a subdirectory
         self.src_file = join(
             self.src_dir,
-            '%(side)s' + src_filename + '%(subject)s.nii.gz')
+            f"%(side)s{src_filename}_%(subject)s.nii.gz")
 
         # Names of files in function of dictionary: keys -> 'subject' and
         # 'side'
         self.resampled_file = join(
             self.resampled_dir,
-            f'%(side)s' + output_filename + '%(subject)s.nii.gz')
+            f"%(side)s{output_filename}_%(subject)s.nii.gz")
 
         # subjects are detected as the nifti file names under src_dir
-        self.expr = '^.' + src_filename + '(.*).nii.gz$'
+        self.expr = f"^.{src_filename}_(.*).nii.gz$"
 
     @staticmethod
     def resample_one_subject(src_file: str,
@@ -496,12 +493,12 @@ def parse_args(argv):
     parser.add_argument(
         "-f", "--src_filename", type=str, default=None,
         help='Filename of sources files. '
-             'Format is : "<SIDE><src_filename><SUBJECT>.nii.gz" '
+             'Format is : "<SIDE><src_filename>_<SUBJECT>.nii.gz" '
              'Default is : ' + _SKELETON_FILENAME)
     parser.add_argument(
         "-e", "--output_filename", type=str, default=None,
         help='Filename of output files. '
-             'Format is : "<SIDE><output_filename><SUBJECT>.nii.gz" '
+             'Format is : "<SIDE><output_filename>_<SUBJECT>.nii.gz" '
              'Default is : ' + _RESAMPLED_SKELETON_FILENAME)
     parser.add_argument(
         '-v', '--verbose', action='count', default=0,
