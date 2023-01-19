@@ -121,6 +121,9 @@ def parse_args(argv):
              '0 subject is allowed, for debug purpose.'
              'Default is : all')
     parser.add_argument(
+        "-b", "--bids", default=False, action='store_true',
+        help='Bids Format')
+    parser.add_argument(
         '-v', '--verbose', action='count', default=0,
         help='Verbose mode: '
         'If no option is provided then logging.INFO is selected. '
@@ -144,6 +147,7 @@ def parse_args(argv):
     params['parallel'] = args.parallel
     # Checks if nb_subjects is either the string "all" or a positive integer
     params['nb_subjects'] = get_number_subjects(args.nb_subjects)
+    params['bids'] = args.bids
 
     return params
 
@@ -185,7 +189,8 @@ class GraphConvert2Skeleton:
         for graph_file in list_graph_file:
             skeleton_file = self.get_skeleton_filename(subject, graph_file)
             if self.side == "F":
-                graph_file_left, graph_file_left, graph_to_remove = self.get_left_and_right_graph_files(graph_file)
+                graph_file_left, graph_file_right, graph_to_remove = \
+                    self.get_left_and_right_graph_files(graph_file, list_graph_file)
                 if graph_to_remove:
                     list_graph_file.remove(graph_to_remove)
                     generate_full_skeleton(graph_file_left,
@@ -215,8 +220,7 @@ class GraphConvert2Skeleton:
         skeleton_file += ".nii.gz"
         return skeleton_file
 
-
-    def get_left_and_right_graph_files(self, graph_file):
+    def get_left_and_right_graph_files(self, graph_file, list_graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
             graph_file_left = graph_file
@@ -315,7 +319,8 @@ def main(argv):
         side=params['side'],
         junction=params['junction'],
         parallel=params['parallel'],
-        number_subjects=params['nb_subjects'])
+        number_subjects=params['nb_subjects'],
+        bids=params['bids'])
 
 
 if __name__ == '__main__':
