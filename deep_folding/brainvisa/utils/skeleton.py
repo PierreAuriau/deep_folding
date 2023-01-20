@@ -199,7 +199,7 @@ def generate_full_skeleton(graph_file_left: str,
     boundingbox_max_left = np.asarray(graph_left["boundingbox_max"])
     boundingbox_max_right = np.asarray(graph_right["boundingbox_max"])
     boundingbox_max = np.maximum(boundingbox_max_left, boundingbox_max_right)
-    log.debug("Boundingbox max : " + str(boundingbox_max))
+    log.debug(f"Boundingbox max : {boundingbox_max}")
 
     # Create empty volumes with the new dimensions
     dimensions = (boundingbox_max[0] + 1,
