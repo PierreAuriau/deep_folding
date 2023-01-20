@@ -216,6 +216,7 @@ class GraphConvert2Skeleton:
         skeleton_file += ".nii.gz"
         return skeleton_file
 
+    @static_method
     def get_left_and_right_graph_files(self, subject, graph_file, list_graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
