@@ -219,6 +219,7 @@ class GraphGenerateTransform:
         transform_file += ".trm"
         return transform_file
 
+    @static_method
     def get_left_and_right_graph_files(self, graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
