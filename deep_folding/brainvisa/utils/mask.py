@@ -51,7 +51,8 @@ from soma.aimsalgo import MorphoGreyLevel_S16
 
 from deep_folding.config.logs import set_file_logger
 
-from deep_folding.brainvisa.utils.constants import _MASK_DIR_DEFAULT
+from deep_folding.brainvisa.utils.constants import \
+    _MASK_DIR_DEFAULT, _DILATION_DEFAULT, _THRESHOLD_DEFAULT
 
 # Defines logger
 log = set_file_logger(__file__)
@@ -79,7 +80,12 @@ def compute_bbox_mask(arr):
     return np.array(bbmin), np.array(bbmax)
 
 
-def compute_simple_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
+def compute_simple_mask(
+        sulci_list,
+        side,
+        mask_dir=_MASK_DIR_DEFAULT,
+        dilation=_DILATION_DEFAULT,
+        threshold=_THRESHOLD_DEFAULT):
     """Function returning mask combining mask over several sulci
 
     It reads mask files in the source mask directory and combines them.
@@ -101,37 +107,47 @@ def compute_simple_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
 
     for sulcus in sulci_list:
         mask_file = join(mask_dir, side, sulcus + '.nii.gz')
+        log.info(f"mask file: {mask_file}")
         list_masks.append(aims.read(mask_file))
 
     # Computes the mask being a combination of all masks
     mask_result = list_masks[0]
-    if len(list_masks)==1:
-        print(f"only one sulcus: {sulci_list[0]}")
-        arr_result = np.asarray(dl.dilate(mask_result, radius=5))
+    if len(list_masks) == 1:
+        log.info(f"only one sulcus: {sulci_list[0]}")
+        mask_result[np.asarray(mask_result) <= threshold] = 0
+        arr_result = np.asarray(dl.dilate(mask_result, radius=dilation))
         np.asarray(mask_result)[:] = arr_result
 
     else:
         arr_result = np.asarray(mask_result)
-        print(f"first sulcus: {sulci_list[0]}")
+        log.info(f"first sulcus: {sulci_list[0]}")
         for k, mask in enumerate(list_masks[1:]):
             print(f"sulcus {sulci_list[k+1]}")
             arr = np.asarray(mask)
             arr_result += arr
 
-        arr_result = np.asarray(dl.dilate(mask_result, radius=5))
+        mask_result[np.asarray(mask_result) <= threshold] = 0
+        arr_result = np.asarray(dl.dilate(mask_result, radius=dilation))
         np.asarray(mask_result)[:] = arr_result
 
+    log.info(f"threshold = {threshold}")
     # Computes the mask bounding box
     bbmin, bbmax = compute_bbox_mask(arr_result)
-    # aims.write(mask_result, '/neurospin/dico/data/deep_folding/current/datasets/hcp/crops/1mm/precentral/mask/test.nii.gz')
+    # aims.write(mask_result, '/tmp/test.nii.gz')
     return mask_result, bbmin, bbmax
 
 
 def intersect_binary(a, b):
     """returns intersection of two binary arrays"""
-    return ((a+b)> 1).astype(np.int16)
+    return ((a + b) > 1).astype(np.int16)
 
-def compute_intersection_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
+
+def compute_intersection_mask(
+        sulci_list,
+        side,
+        mask_dir=_MASK_DIR_DEFAULT,
+        dilation=_DILATION_DEFAULT,
+        threshold=_THRESHOLD_DEFAULT):
     """Function returning mask making intersection of masks over several sulci
 
     It reads mask files in the source mask directory and combines them.
@@ -157,9 +173,10 @@ def compute_intersection_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
 
     # Computes the mask being a combination of all masks
     mask_result = list_masks[0]
-    if len(list_masks)==1:
+    if len(list_masks) == 1:
         print(f"only one sulcus: {sulci_list[0]}")
-        arr_result = np.asarray(dl.dilate(mask_result, radius=5))
+        mask_result[np.asarray(mask_result) <= threshold] = 0
+        arr_result = np.asarray(dl.dilate(mask_result, radius=dilation))
         np.asarray(mask_result)[:] = arr_result
 
     else:
@@ -173,12 +190,16 @@ def compute_intersection_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
             arr_result = intersect_binary(arr_result, arr)
 
         np.asarray(mask_result)[:] = arr_result
-        #ATTENTION: threshold in dl.dilate is set to 2
-        arr_result = np.asarray(dl.dilate(mask_result*2, radius=6))
+        mask_result[np.asarray(mask_result) <= threshold] = 0
+        arr_result = np.asarray(dl.dilate(mask_result, radius=dilation))
         np.asarray(mask_result)[:] = arr_result
-        print(f"np.unique(mask_result) = {np.unique(np.asarray(mask_result), return_counts=True)}")
+        print(
+            f"np.unique(mask_result) = "
+            f"{np.unique(np.asarray(mask_result), return_counts=True)}")
 
-    print(f"np.unique after intersection = {np.unique(arr_result, return_counts=True)}")
+    print(
+        f"np.unique after intersection = "
+        f"{np.unique(arr_result, return_counts=True)}")
     print(f"Shape after intersection = {arr_result.shape}")
 
     # Computes the mask bounding box
@@ -186,7 +207,7 @@ def compute_intersection_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
     return mask_result, bbmin, bbmax
 
 
-
+# SPECIFIC FOR THE CINGULATE REGION STUDY (2022, CHAVAS, GAUDIN)
 def compute_centered_mask(sulci_list, side, mask_dir=_MASK_DIR_DEFAULT):
     """Function returning mask combining mask over several sulci
 

@@ -48,6 +48,12 @@ from deep_folding.brainvisa.utils.constants import _JUNCTION_DEFAULT
 log = set_file_logger(__file__)
 
 
+def is_skeleton(arr):
+    """checks if arr is a skeleton"""
+    skel_values = np.array([0, 30, 35, 60, 100, 110, 120])
+    return np.isin(arr, skel_values).all()
+
+
 def generate_skeleton_thin_junction(
         graph: aims.Graph, volume: aims.Volume) -> aims.Volume:
     """Converts an aims graph into skeleton volumes
@@ -59,11 +65,6 @@ def generate_skeleton_thin_junction(
     vol_skel = volume
     arr_skel = np.asarray(vol_skel)
 
-    log.debug(f'Dimension of the empty volume : {np.shape(arr_skel)}')
-
-    cnt_duplicate = 0
-    cnt_total = 0
-
     for edge in graph.edges():
         for bucket_name, value in {'aims_junction': 110}.items():
             bucket = edge.get(bucket_name)
@@ -73,6 +74,16 @@ def generate_skeleton_thin_junction(
                     continue
                 for i, j, k in voxels:
                     arr_skel[i, j, k] = value
+
+    for edge in graph.edges():
+        if edge.getSyntax() == 'hull_junction':
+            bucket = edge.get('aims_junction')
+            if bucket is not None:
+                voxels = np.array(bucket[0].keys())
+                if voxels.shape == (0,):
+                    continue
+                for i, j, k in voxels:
+                    arr_skel[i, j, k] = 35
 
     for edge in graph.edges():
         for bucket_name, value in {'aims_plidepassage': 120}.items():
@@ -93,9 +104,6 @@ def generate_skeleton_thin_junction(
                 if voxels.shape == (0,):
                     continue
                 for i, j, k in voxels:
-                    # cnt_total += 1
-                    # if arr_skel[i, j, k] != 0:
-                    #     cnt_duplicate += 1
                     arr_skel[i, j, k] = value
 
     index = np.nonzero(arr_skel)
@@ -158,8 +166,9 @@ def generate_skeleton_wide_junction(
     return vol_skel
 
 
-def generate_skeleton_from_graph(graph: aims.Graph,
-                                 junction: str = _JUNCTION_DEFAULT) -> aims.Volume:
+def generate_skeleton_from_graph(
+        graph: aims.Graph,
+        junction: str = _JUNCTION_DEFAULT) -> aims.Volume:
     """Generates skeleton from graph"""
     volume = create_empty_volume_from_graph(graph)
     if junction == 'wide':
@@ -175,6 +184,8 @@ def generate_skeleton_from_graph_file(graph_file: str,
     """Generates skeleton from graph file"""
     graph = aims.read(graph_file)
     vol_skeleton = generate_skeleton_from_graph(graph, junction)
+    if not is_skeleton(np.asarray(vol_skeleton)):
+        raise ValueError(f"{skeleton_file} has unexpected skeleton values")
     aims.write(vol_skeleton, skeleton_file)
 
 

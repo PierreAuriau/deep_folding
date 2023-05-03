@@ -197,5 +197,44 @@ We then generate skeleton crops and foldlabel crops. The effective mask is saved
 
     python3 generate_crops.py -s $RESAMPLED_SKELETON_DIR -o $CROP_DIR -i $SIDE -y skeleton -k $MASK_DIR -u $SULCUS -c mask -a
     python3 generate_crops.py -s $RESAMPLED_SKELETON_DIR -o $CROP_DIR -i $SIDE -y foldlabel -k $MASK_DIR -u $SULCUS -c mask -a
-  
- 
+
+pipeline.py
+===========
+
+You can use the pipeline.py program to do all the previous steps in one command line. The way it works is that it calls all the required functions to process the target dataset from graphs to crops.
+/!\ Currently, if a step is already done (already existing skeletons for example) and the data stored at the right place, the program doesn't recompute it and use the existing data.
+
+All the parameters required for the called functions need to be written in a json file, which is the only argument (with verbose) of the pipeline function.
+/!\ Any change in the arguments of a called function needs to be passed on both the json file and the pipeline.py code itself.
+
+Remark: a command line log is still computed with this method. The only difference is that the name of the normally called python file has "pipeline_" at the beginning. The parameters json file file is also copied to the crop directory.
+
+
+Currently (last update on 09/02/2023) the arguments of the json file are the following:
+
+- save_behavior: parameter to set how the generated files should be saved. Choose 'clear_and_compute' to delete potential already existing ones, choose 'best' to compute only subjects that don't already exist,
+choose 'minimal' to call the functions only if the directory is missing or empty.
+Remark: for the mask computation, it is always 'best' that is chosen.
+Remark: 'clear_and_compute' should be used only if you want to recompute the whole pipeline for all subjects. 'best' should be preferred in other cases.
+- side: 'R' for right hemisphere or 'L' for left hemisphere.
+- out_voxel_size: float, same as others.
+- region name: *pipeline specific* ; name of the target region in the brain_region_json.
+- brain_region_json: *pipeline specific* ; path to a json containing brain regions, each one defined by a set of sulci.
+- parallel: set to true to compute the whole pipeline in parallel mode.
+- nb_subjects: int ; number of subjects to generate as crops. Set to -1 for all subjects.
+- input_type: what kind of crops to produce. Either 'skeleton' (default), 'foldlabel' or 'distmap'.
+- labeled_subject_dir: path to a labeled database, used to generate the mask of the target region.
+- path_to_graph(_supervised): end of the path to graphs. Used to generate the masks (_supervised) or the skeletons.
+- supervised_output_dir: Path where to store the supervised products of the pipeline, such as masks or bounding boxes.
+- nb_subjects_mask: int ; number of labeled subjects used to generate the masks. Set to -1 for all subjects.
+- graphs_dir: path where the graph files are stored.
+- skel_qc_path: path to the csv file containing the hand-made quality checks. Used by generate_skeletons.
+- nb_subjects_mask: int, used by compute_mask. Number of subjects used to compute the masks.
+- output_dir: directory where the object is to be saved. If the file already exists, the program uses the already existing data and doesn't recompute it.
+- junction: parameter of generate_skeletons and generate_foldlabels.
+- bids: parameter of generate_skeletons and generate_ICBM2009c_transforms.
+- new_sulcus: parameter of compute_mask.
+- resampled_skel: parameter of generate_distmaps.
+- cropping_type: parameter of generate_crops.
+- combine_type: parameter of generate_crops.
+- no_mask: parameter of generate_crops.

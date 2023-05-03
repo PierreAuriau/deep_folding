@@ -39,8 +39,8 @@ import numpy as np
 from soma import aims
 from soma.aimsalgo import MorphoGreyLevel_S16
 
-#import anatomist.api as anatomist
-#from soma.qt_gui.qt_backend import Qt
+# import anatomist.api as anatomist
+# from soma.qt_gui.qt_backend import Qt
 
 _AIMS_BINARY_ONE = 32767
 
@@ -49,14 +49,13 @@ def dilate(mask, radius=10.):
     """
     """
     # Creates volume
-    #hdr = aims.StandardReferentials.icbm2009cTemplateHeader()
-    #vol = aims.Volume(hdr['volume_dimension'], dtype='S16')
+    # hdr = aims.StandardReferentials.icbm2009cTemplateHeader()
+    # vol = aims.Volume(hdr['volume_dimension'], dtype='S16')
     # vol.copyHeaderFrom(hdr)
     arr = np.asarray(mask)
-    # Thresholding and binarization of mask
-    ## For precentral, threshold is set to 2
-    arr[arr < 2] = 0
-    arr[arr >= 2] = _AIMS_BINARY_ONE
+    # Binarization of mask
+    arr[arr < 1] = 0
+    arr[arr >= 1] = _AIMS_BINARY_ONE
     # Dilates initial volume of 10 mm
     morpho = MorphoGreyLevel_S16()
     dilate = morpho.doDilation(mask, radius)
@@ -67,7 +66,8 @@ def dilate(mask, radius=10.):
 
 def main():
     mask = aims.read(
-        '/neurospin/dico/data/deep_folding/current/mask/2mm/R/paracingular._right.nii.gz')
+        '/neurospin/dico/data/deep_folding/current/mask/2mm/R/'
+        'paracingular._right.nii.gz')
     mask_dilated = dilate(mask)
     aims.write(mask_dilated, '/tmp/mask_dil.nii.gz')
 

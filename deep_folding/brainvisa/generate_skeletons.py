@@ -57,22 +57,27 @@ from os.path import join
 
 from deep_folding.brainvisa import exception_handler
 from deep_folding.brainvisa.utils.folder import create_folder
-from deep_folding.brainvisa.utils.subjects import get_number_subjects
-from deep_folding.brainvisa.utils.subjects import select_subjects_int
+from deep_folding.brainvisa.utils.subjects import \
+    get_number_subjects, is_it_a_subject
+from deep_folding.brainvisa.utils.subjects import \
+    select_subjects_int, select_good_qc
 from deep_folding.brainvisa.utils.logs import setup_log
 from deep_folding.brainvisa.utils.parallel import define_njobs
 from deep_folding.brainvisa.utils.skeleton import \
     generate_skeleton_from_graph_file, generate_full_skeleton
 from deep_folding.brainvisa.utils.quality_checks import \
-    compare_number_aims_files_with_expected
+    compare_number_aims_files_with_expected, \
+    get_not_processed_subjects
 from pqdm.processes import pqdm
+from p_tqdm import p_map
 from deep_folding.config.logs import set_file_logger
 
 # Import constants
 from deep_folding.brainvisa.utils.constants import \
     _ALL_SUBJECTS, _SRC_DIR_DEFAULT,\
     _SKELETON_DIR_DEFAULT, _SIDE_DEFAULT, \
-    _JUNCTION_DEFAULT, _PATH_TO_GRAPH_DEFAULT
+    _JUNCTION_DEFAULT, _PATH_TO_GRAPH_DEFAULT, \
+    _QC_PATH_DEFAULT
 
 # Defines logger
 log = set_file_logger(__file__)
@@ -109,11 +114,16 @@ def parse_args(argv):
         help='Relative path to graph. '
              'Default is ' + _PATH_TO_GRAPH_DEFAULT)
     parser.add_argument(
+        "-q", "--quality_checks", type=str,
+        default=_QC_PATH_DEFAULT,
+        help='Path to quality check .csv. '
+             'Default is ' + _QC_PATH_DEFAULT)
+    parser.add_argument(
         "-j", "--junction", type=str, default=_JUNCTION_DEFAULT,
         help='junction rendering (either \'wide\' or \'thin\') '
              f"Default is {_JUNCTION_DEFAULT}")
     parser.add_argument(
-        "-b", "--bids", default=False, action='store_true',
+        "-b", "--bids", default=False, action="store_true",
         help='If the database is organized according to BIDS rules.'
              'In particular, for databases having several images for each subject. ')
     parser.add_argument(
@@ -157,16 +167,34 @@ class GraphConvert2Skeleton:
 
     def __init__(self, src_dir, skeleton_dir,
                  side, junction, parallel,
-                 path_to_graph, bids):
+                 path_to_graph, bids, qc_path):
         self.src_dir = src_dir
         self.skeleton_dir = skeleton_dir
         self.side = side
+        self.qc_path = qc_path
         self.junction = junction
         self.parallel = parallel
         self.path_to_graph = path_to_graph
+        self.bids = bids
         self.skeleton_dir = f"{self.skeleton_dir}/{self.side}"
         create_folder(abspath(self.skeleton_dir))
         self.bids = bids
+
+    def get_skeleton_filename(self, subject, graph_file):
+        skeleton_file = f"{self.skeleton_dir}/" + \
+                        f"{self.side}skeleton_generated_{subject}"
+        if self.bids:
+            session = re.search("ses-([^_/]+)", graph_file)
+            acquisition = re.search("acq-([^_/]+)", graph_file)
+            run = re.search("run-([^_/]+)", graph_file)
+            if session:
+                skeleton_file += f"_{session[0]}"
+            if acquisition:
+                skeleton_file += f"_{acquisition[0]}"
+            if run:
+                skeleton_file += f"_{run[0]}"
+        skeleton_file += ".nii.gz"
+        return skeleton_file
 
     def generate_one_skeleton(self, subject: str):
         """Generates and writes skeleton for one subject.
@@ -200,22 +228,6 @@ class GraphConvert2Skeleton:
             if not self.bids:
                 break
 
-    def get_skeleton_filename(self, subject, graph_file):
-        skeleton_file = f"{self.skeleton_dir}/" + \
-                        f"{self.side}skeleton_generated_{subject}"
-        if self.bids:
-            session = re.search("ses-([^_/]+)", graph_file)
-            acquisition = re.search("acq-([^_/]+)", graph_file)
-            run = re.search("run-([^_/]+)", graph_file)
-            if session:
-                skeleton_file += f"_{session[0]}"
-            if acquisition:
-                skeleton_file += f"_{acquisition[0]}"
-            if run:
-                skeleton_file += f"_{run[0]}"
-        skeleton_file += ".nii.gz"
-        return skeleton_file
-
     @static_method
     def get_left_and_right_graph_files(self, subject, graph_file, list_graph_file):
         graph_name = basename(graph_file)
@@ -240,10 +252,15 @@ class GraphConvert2Skeleton:
     def compute(self, number_subjects):
         """Loops over subjects and converts graphs into skeletons.
         """
-        # Gets list fo subjects
+        # Gets list of subjects
         filenames = glob.glob(f"{self.src_dir}/*")
-        list_subjects = [basename(filename) for filename in filenames 
-                         if not re.search('.minf$', filename)]
+        list_subjects = [basename(filename) for filename in filenames
+                         if is_it_a_subject(filename)]
+        log.info(f"Number of subjects before qc = {len(list_subjects)}")
+        list_subjects = select_good_qc(list_subjects, self.qc_path)
+        list_subjects = \
+            get_not_processed_subjects(list_subjects, self.skeleton_dir)
+
         list_subjects = select_subjects_int(list_subjects, number_subjects)
 
         log.info(f"Expected number of subjects = {len(list_subjects)}")
@@ -254,9 +271,9 @@ class GraphConvert2Skeleton:
         if self.parallel:
             log.info(
                 "PARALLEL MODE: subjects are computed in parallel.")
-            pqdm(list_subjects,
-                 self.generate_one_skeleton,
-                 n_jobs=define_njobs())
+            p_map(self.generate_one_skeleton,
+                  list_subjects,
+                  num_cpus=define_njobs())
         else:
             log.info(
                 "SERIAL MODE: subjects are scanned serially, "
@@ -282,7 +299,8 @@ def generate_skeletons(
         junction=_JUNCTION_DEFAULT,
         bids=False,
         parallel=False,
-        number_subjects=_ALL_SUBJECTS):
+        number_subjects=_ALL_SUBJECTS,
+        qc_path=_QC_PATH_DEFAULT):
     """Generates skeletons from graphs"""
 
     # Initialization
@@ -291,9 +309,11 @@ def generate_skeletons(
         skeleton_dir=skeleton_dir,
         path_to_graph=path_to_graph,
         side=side,
-        junction=junction,
         bids=bids,
-        parallel=parallel)
+        junction=junction,
+        parallel=parallel,
+        qc_path=qc_path
+    )
     # Actual generation of skeletons from graphs
     conversion.compute(number_subjects=number_subjects)
 
@@ -317,7 +337,8 @@ def main(argv):
         junction=params['junction'],
         bids=params['bids'],
         parallel=params['parallel'],
-        number_subjects=params['nb_subjects'])
+        number_subjects=params['nb_subjects'],
+        qc_path=params['quality_checks'])
 
 
 if __name__ == '__main__':

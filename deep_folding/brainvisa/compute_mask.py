@@ -58,6 +58,8 @@ from deep_folding.brainvisa.utils.subjects import get_number_subjects
 from deep_folding.brainvisa.utils.subjects import select_subjects_int
 from deep_folding.brainvisa.utils.subjects import \
     get_all_subjects_as_dictionary
+from deep_folding.brainvisa.utils.quality_checks import \
+    get_not_processed_subjects_dict
 from deep_folding.brainvisa.utils.sulcus import complete_sulci_name
 from deep_folding.config.logs import set_file_logger
 from soma import aims
@@ -115,7 +117,8 @@ def increment_one_mask(graph_filename, mask, sulcus, voxel_size_out):
             bucket = vertex.get(bucket_name)
             if bucket is not None:
                 voxels_real = np.asarray(
-                    [g_to_icbm_template.transform(np.array(voxel) * voxel_size_in)
+                    [g_to_icbm_template.transform(
+                        np.array(voxel) * voxel_size_in)
                         for voxel in bucket[0].keys()])
                 if voxels_real.shape == (0,):
                     continue
@@ -140,6 +143,7 @@ def increment_one_mask(graph_filename, mask, sulcus, voxel_size_out):
 
     return vol_one
 
+
 def increment_mask(subjects: list,
                    mask: aims.Volume,
                    sulcus: str,
@@ -163,9 +167,9 @@ def increment_mask(subjects: list,
         sulci_pattern = list_graph_file[0]
 
         vol_one = increment_one_mask(sulci_pattern % sub,
-                                      mask,
-                                      sulcus,
-                                      voxel_size_out)
+                                     mask,
+                                     sulcus,
+                                     voxel_size_out)
         aims.write(vol_one, f"{sample_dir}/{sub['subject']}.nii.gz")
 
 
@@ -200,7 +204,8 @@ class MaskAroundSulcus:
             mask_dir: name of target directory with full path
             sulcus: sulcus name
             new_sulcus: new sulcus name
-            side: hemisphere side (either L for left, or R for right hemisphere)
+            side: hemisphere side (either L for left,
+                                or R for right hemisphere)
             out_voxel_size: float for voxel size in mm
         """
 
@@ -248,25 +253,30 @@ class MaskAroundSulcus:
                 self.graph_file,
                 self.side)
 
-            # Gives the possibility to list only the first number_subjects
-            subjects = select_subjects_int(subjects, number_subjects)
-
             # Creates target mask_dir if they don't exist
             create_folder(self.mask_dir)
             create_folder(self.mask_sample_dir)
 
-            # Creates volume that will take the mask
-            self.mask = initialize_mask(self.out_voxel_size)
+            # Generates list of subjects not treated yet
+            not_treated_subjects = get_not_processed_subjects_dict(
+                subjects, self.mask_sample_dir)
 
-            # Increments mask for each sulcus and subjects
-            increment_mask(subjects,
-                           self.mask,
-                           self.sulcus,
-                           self.out_voxel_size,
-                           self.mask_sample_dir)
+            if len(not_treated_subjects):
+                # Gives the possibility to list only the first number_subjects
+                subjects = select_subjects_int(subjects, number_subjects)
 
-            # Saving of generated masks
-            write_mask(self.mask, self.mask_file)
+                # Creates volume that will take the mask
+                self.mask = initialize_mask(self.out_voxel_size)
+
+                # Increments mask for each sulcus and subjects
+                increment_mask(subjects,
+                               self.mask,
+                               self.sulcus,
+                               self.out_voxel_size,
+                               self.mask_sample_dir)
+
+                # Saving of generated masks
+                write_mask(self.mask, self.mask_file)
 
 
 def compute_mask(src_dir=_SUPERVISED_SRC_DIR_DEFAULT,
@@ -297,7 +307,6 @@ def compute_mask(src_dir=_SUPERVISED_SRC_DIR_DEFAULT,
     Returns:
         aims volume containing the mask
     """
-
     mask = MaskAroundSulcus(src_dir=src_dir,
                             mask_dir=mask_dir,
                             path_to_graph=path_to_graph,
@@ -325,7 +334,8 @@ def parse_args(argv: list) -> dict:
         prog=basename(__file__),
         description='Computes mask around the named sulcus')
     parser.add_argument(
-        "-s", "--src_dir", type=str, default=_SUPERVISED_SRC_DIR_DEFAULT, nargs='+',
+        "-s", "--src_dir", type=str, default=_SUPERVISED_SRC_DIR_DEFAULT,
+        nargs='+',
         help='Source directory where the MRI data lies. '
              'If there are several directories, add all directories '
              'one after the other. Example: -s DIR_1 DIR_2. '

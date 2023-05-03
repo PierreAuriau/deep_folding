@@ -3,7 +3,7 @@ _ALL_SUBJECTS = -1
 
 # Default directory in which lies the manually segmented database
 _SUPERVISED_SRC_DIR_DEFAULT = \
-    "/neurospin/dico/data/bv_databases/human/pclean/all"
+    "/neurospin/dico/data/bv_databases/human/manually_labeled/pclean/all"
 
 # Gives the relative path to the manually labelled graph .arg
 # in the supervised database
@@ -12,7 +12,8 @@ _PATH_TO_GRAPH_SUPERVISED_DEFAULT = \
 
 # Default directory in which lies the dataset
 # It points to HCP directory
-_SRC_DIR_DEFAULT = "/neurospin/dico/data/bv_databases/human/hcp/hcp"
+_SRC_DIR_DEFAULT = \
+    "/neurospin/dico/data/bv_databases/human/not_labeled/hcp/hcp"
 
 # Gives the relative path to the labelled graph .arg
 # in a "morphologist-like" dataset
@@ -43,8 +44,17 @@ _TRANSFORM_DIR_DEFAULT = "test/datasets/hcp/transforms"
 # Default directory where we put resampled skeletons
 _RESAMPLED_SKELETON_DIR_DEFAULT = "test/datasets/hcp/skeletons/1mm"
 
+# Default directory where we put resampled foldlabels
+_RESAMPLED_FOLDLABEL_DIR_DEFAULT = "test/datasets/hcp/foldlabels/1mm"
+
 # Default directory where we put crops
 _CROP_DIR_DEFAULT = "test/datasets/hcp/crops/CINGULATE/mask/1mm"
+
+# Dilation size
+_DILATION_DEFAULT = 5.0
+
+# Threshold value
+_THRESHOLD_DEFAULT = 0.0
 
 # hemisphere 'L' or 'R'
 _SIDE_DEFAULT = 'R'
@@ -67,3 +77,10 @@ _COMBINE_TYPE_DEFAULT = False
 
 # Whether applying mask or not on cropped file
 _NO_MASK_DEFAULT = False
+
+# path to the brain regions' json
+_BRAIN_REGION_JSON = \
+    '/neurospin/dico/data/deep_folding/current/sulci_regions_overlap.json'
+
+# path to the qc csv
+_QC_PATH_DEFAULT = ''

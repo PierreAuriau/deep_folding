@@ -57,12 +57,14 @@ from os.path import dirname
 
 from deep_folding.brainvisa import exception_handler
 from deep_folding.brainvisa.utils.folder import create_folder
-from deep_folding.brainvisa.utils.subjects import get_number_subjects
+from deep_folding.brainvisa.utils.subjects import get_number_subjects,\
+                                                  is_it_a_subject
 from deep_folding.brainvisa.utils.subjects import select_subjects_int
 from deep_folding.brainvisa.utils.logs import setup_log
 from deep_folding.brainvisa.utils.parallel import define_njobs
 from deep_folding.brainvisa.utils.quality_checks import \
-    compare_number_aims_files_with_expected
+    compare_number_aims_files_with_expected, \
+    get_not_processed_subjects_transform
 from pqdm.processes import pqdm
 from deep_folding.config.logs import set_file_logger
 from soma import aims
@@ -109,7 +111,7 @@ def parse_args(argv):
         help='Relative path to graph. '
              'Default is ' + _PATH_TO_GRAPH_DEFAULT)
     parser.add_argument(
-        "-b", "--bids", default=False, action='store_true',
+        "-b", "--bids", default=False, action="store_true",
         help='If the database is organized according to BIDS rules.'
              'In particular, for databases having several images for each subject. ')
     parser.add_argument(
@@ -152,13 +154,14 @@ class GraphGenerateTransform:
     """
 
     def __init__(self, src_dir, transform_dir,
-                 side, parallel, path_to_graph,
-                 bids):
+                 side, parallel,
+                 path_to_graph, bids):
         self.src_dir = src_dir
         self.transform_dir = transform_dir
         self.side = side
         self.parallel = parallel
         self.path_to_graph = path_to_graph
+        self.bids = bids
         self.transform_dir = f"{self.transform_dir}/{self.side}"
         create_folder(abspath(self.transform_dir))
         self.bids = bids
@@ -172,6 +175,7 @@ class GraphGenerateTransform:
         else:
             graph_path = f"{self.src_dir}/{subject}*/" + \
                          f"{self.path_to_graph}/{self.side}{subject}*.arg"
+        log.debug(graph_path)
         list_graph_file = glob.glob(graph_path)
         log.debug(f"list_graph_file = {list_graph_file}")
         if len(list_graph_file) == 0:
@@ -248,9 +252,12 @@ class GraphGenerateTransform:
         filenames = glob.glob(f"{self.src_dir}/*[!.minf]")
         log.info(f"filenames[:5] = {filenames[:5]}")
 
-        list_subjects = [basename(filename) for filename in filenames 
-                         if not re.search('.minf$', filename)]
-
+        list_subjects = [basename(filename) for filename in filenames
+                         if is_it_a_subject(filename)]
+        list_subjects = \
+            get_not_processed_subjects_transform(list_subjects,
+                                                 self.transform_dir,
+                                                 prefix="ICBM2009c_")
         list_subjects = select_subjects_int(list_subjects, number_subjects)
 
         log.info(f"Expected number of subjects = {len(list_subjects)}")
@@ -273,9 +280,11 @@ class GraphGenerateTransform:
 
         # Checks if there is expected number of generated files
         if self.bids:
-            list_graphs = [g for g in glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
+            list_graphs = [g for g in
+                           glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
                            if not re.search('.minf$', g)]
-            compare_number_aims_files_with_expected(self.transform_dir, list_graphs)
+            compare_number_aims_files_with_expected(
+                self.transform_dir, list_graphs)
         else:
             compare_number_aims_files_with_expected(self.transform_dir,
                                                     list_subjects)
@@ -298,7 +307,8 @@ def generate_ICBM2009c_transforms(
         path_to_graph=path_to_graph,
         side=side,
         bids=bids,
-        parallel=parallel)
+        parallel=parallel
+    )
     # Actual generation of skeletons from graphs
     transform.compute(number_subjects=number_subjects)
 

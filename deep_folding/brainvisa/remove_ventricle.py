@@ -85,8 +85,10 @@ def remove_ventricle_from_one_skeleton(skeleton_file, labelled_graph_file):
         if "label" in vertex:
             label = vertex["label"]
             if label.startswith("ventricle"):
-                for bucket_name, value in {'aims_other': 100,
-                                           'aims_ss': 60, 'aims_bottom': 30}.items():
+                for bucket_name, value in {
+                        'aims_other': 100,
+                        'aims_ss': 60,
+                        'aims_bottom': 30}.items():
                     bucket = vertex.get(bucket_name)
                     if bucket is not None:
                         voxels = np.array(bucket[0].keys())
@@ -111,7 +113,8 @@ def parse_args(argv):
         description="Generate skeleton files without ventricle.")
     parser.add_argument(
         "-s", "--skeleton_dir", type=str,
-        help="Directory where are the skeletons you want ventricle to be removed from")
+        help="Directory where are the skeletons you want ventricle "
+             "to be removed from")
     parser.add_argument(
         "-o", "--output_dir", type=str, default=_OUTPUT_DIR_DEFAULT,
         help="Output directory where to put skeleton files without ventricle. "
@@ -119,18 +122,26 @@ def parse_args(argv):
     parser.add_argument(
         "-m", "--morpho_dir", type=str, default=_SRC_DIR_DEFAULT,
         help="Directory where the graph data lies. It has to point directly to"
-             "the morphologist directory containing the subjects as subdirectories. "
+             "the morphologist directory containing the subjects "
+             "as subdirectories. "
              f"Default is : {_SRC_DIR_DEFAULT}")
     parser.add_argument(
-        "-p", "--path_to_graph", type=str, default=_PATH_TO_GRAPH_DEFAULT,
+        "-p",
+        "--path_to_graph",
+        type=str,
+        default=_PATH_TO_GRAPH_DEFAULT,
         help="Relative path to graph. "
-             "In BIDS format, the session_acquisition_run directory have to be replaced by *. "
-             f"Default is :  {_PATH_TO_GRAPH_DEFAULT}")
+        "In BIDS format, the session_acquisition_run directory "
+        "have to be replaced by *. "
+        f"Default is :  {_PATH_TO_GRAPH_DEFAULT}")
     parser.add_argument(
-        "-f", "--skeleton_filename", type=str, default=_SKELETON_FILENAME_DEFAULT,
+        "-f",
+        "--skeleton_filename",
+        type=str,
+        default=_SKELETON_FILENAME_DEFAULT,
         help="Filename of skeleton files. "
-             "Format is : <SIDE><skeleton_filename>_<SUBJECT>.nii.gz "
-             f"Default is : {_SKELETON_FILENAME_DEFAULT}")
+        "Format is : <SIDE><skeleton_filename>_<SUBJECT>.nii.gz "
+        f"Default is : {_SKELETON_FILENAME_DEFAULT}")
     parser.add_argument(
         "-e", "--output_filename", type=str, default=_OUTPUT_FILENAME_DEFAULT,
         help="Filename of output files. "
@@ -202,10 +213,12 @@ class RemoveVentricleFromSkeleton:
         create_folder(abspath(self.output_dir))
 
         self.expr = f"{self.side}{skeleton_filename}_(.*).nii.gz$"
-        self.skeleton_file = join(self.skeleton_dir,
-                                  f"%(side)s{skeleton_filename}_%(subject)s.nii.gz")
-        self.output_file = join(self.output_dir,
-                                f"%(side)s{output_filename}_%(subject)s.nii.gz")
+        self.skeleton_file = join(
+            self.skeleton_dir,
+            f"%(side)s{skeleton_filename}_%(subject)s.nii.gz")
+        self.output_file = join(
+            self.output_dir,
+            f"%(side)s{output_filename}_%(subject)s.nii.gz")
 
     def remove_ventricle_from_one_subject(self, subject: str):
         """ Removes ventricle and writes new skeleton for one subject.
@@ -226,8 +239,8 @@ class RemoveVentricleFromSkeleton:
         if exists(skeleton_file):
             for graph_file in labelled_graph_list:
                 if exists(graph_file):
-                    skeleton = remove_ventricle_from_one_skeleton(skeleton_file,
-                                                                  graph_file)
+                    skeleton = remove_ventricle_from_one_skeleton(
+                        skeleton_file, graph_file)
                 else:
                     raise FileNotFoundError(f"Labelled graph not found : \
                                             {graph_file}")
@@ -252,13 +265,17 @@ class RemoveVentricleFromSkeleton:
                 if len(split) > 1:
                     keys = "_".join(split[1:])
                 filename = f"{side}{subject_id}_{labelling_session}.arg"
-                labelled_graph_file = join(self.morpho_dir, subject_id,
-                                           self.path_to_graph.replace("*", keys),
-                                           labelling_session, filename)
+                labelled_graph_file = join(
+                    self.morpho_dir, subject_id, self.path_to_graph.replace(
+                        "*", keys), labelling_session, filename)
             else:
                 filename = f"{side}{subject}_{labelling_session}.arg"
-                labelled_graph_file = join(self.morpho_dir, subject, self.path_to_graph,
-                                           labelling_session, filename)
+                labelled_graph_file = join(
+                    self.morpho_dir,
+                    subject,
+                    self.path_to_graph,
+                    labelling_session,
+                    filename)
             labelled_graph_list.append(labelled_graph_file)
         return labelled_graph_list
 
