@@ -604,11 +604,11 @@ def parse_args(argv):
     params = {}
 
     args = parser.parse_args(argv)
-
+    dico_suffix = {"R": "right", "L": "left", "F": "full"}
     setup_log(args,
               log_dir=f"{args.output_dir}",
               prog_name=basename(__file__),
-              suffix='right' if args.side == 'R' else 'left')
+              suffix=dico_suffix[args.side])
 
     params['src_dir'] = args.src_dir
     params['input_type'] = args.input_type
