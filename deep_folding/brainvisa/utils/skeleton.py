@@ -38,6 +38,7 @@
 import numpy as np
 from soma import aims
 
+from deep_folding.brainvisa import DeepFoldingError
 from deep_folding.brainvisa.utils.graph import create_empty_volume_from_graph
 from deep_folding.config.logs import set_file_logger
 
@@ -198,14 +199,15 @@ def generate_full_skeleton(graph_file_left: str,
     graph_right = aims.read(graph_file_right)
 
     # Sanity check
+    # TODO: find the good keys to check
     keys_to_check = ['voxel_size', 'transformations', 'referentials', 'referential']
     for k in keys_to_check:
-        if graph_left[k] != graph_right[k]:
-            log.error("Generation of full skeleton aborted")
-            log.error(f"The attribute {k} is not the same in the right graph ({graph_right[k]}) "
-                      f"and in the left graph ({graph_left[k]})")
-            return 0
-
+        try:
+            if graph_left[k] != graph_right[k]:
+                raise DeepFoldingError(f"The attribute {k} is not the same in the right graph ({graph_right[k]}) "
+                                       f"and in the left graph ({graph_left[k]})")
+        except KeyError as e:
+            log.warning(f"The attribute {e} is not in the graphs ({graph_file_right} or {graph_file_left})")
     # Get the dimensions for the new volume
     boundingbox_max_left = np.asarray(graph_left["boundingbox_max"])
     boundingbox_max_right = np.asarray(graph_right["boundingbox_max"])
@@ -220,18 +222,16 @@ def generate_full_skeleton(graph_file_left: str,
     empty_vol_left = create_empty_volume_from_graph(graph_left, dimensions=dimensions)
     empty_vol_right = create_empty_volume_from_graph(graph_right, dimensions=dimensions)
     vol_skeleton = create_empty_volume_from_graph(graph_right, dimensions=dimensions)
-
     # Generate the skeletons according to the junction
     if junction == 'wide':
         vol_skeleton_left = generate_skeleton_wide_junction(graph_left, empty_vol_left)
         vol_skeleton_right = generate_skeleton_wide_junction(graph_right, empty_vol_right)
-        priority_order = {0: 6, 30: 1, 60: 2, 100: 3, 110: 5, 120: 4}
     else:
         vol_skeleton_left = generate_skeleton_thin_junction(graph_left, empty_vol_left)
         vol_skeleton_right = generate_skeleton_thin_junction(graph_right, empty_vol_right)
-        priority_order = {0: 6, 30: 3, 60: 4, 100: 5, 110: 2, 120: 1}
 
-    # FIXME : find the right priority order
+    priority_order = {0: 15, 10: 10, 11: 14, 20: 9, 30: 12, 35: 11, 40: 8,
+                      50: 7, 60: 13, 70: 6, 80: 5, 90: 4, 100: 3, 110: 2, 120: 1}
     arr_skeleton_left = np.asarray(vol_skeleton_left)
     arr_skeleton_right = np.asarray(vol_skeleton_right)
     arr_skeleton = np.asarray(vol_skeleton)
@@ -240,22 +240,18 @@ def generate_full_skeleton(graph_file_left: str,
     # For contentious voxels (voxels which have two different values in the two skeletons),
     # the value is chosen according to the priority order
     vectorize = np.vectorize(lambda x: priority_order[x])
-    mask = vectorize(array_skeleton_right) >= vectorize(array_skeleton_left)
+    mask = vectorize(arr_skeleton_right) >= vectorize(arr_skeleton_left)
     arr_skeleton[mask] = arr_skeleton_left[mask]
     arr_skeleton[~mask] = arr_skeleton_right[~mask]
     arr_skeleton = arr_skeleton.astype(int)
 
     # Sanity check
-    # FIXME : select good threshold -> return 0 in case of exceeding
-    threshold = 20
-    nb_contentious_voxels  = np.count_nonzero(np.logical_and(arr_skeleton_left, arr_skeleton_right))
+    # FIXME : select good threshold
+    threshold = 200
+    nb_contentious_voxels = np.count_nonzero(np.logical_and(arr_skeleton_left, arr_skeleton_right))
     log.debug(f"Unique value of the skeleton : {np.unique(arr_skeleton)}")
     log.debug(f"Number of conflict voxels between left and right skeletons : {nb_contentious_voxels}")
     if nb_contentious_voxels > threshold:
-        log.warning(f"Left and right graph files have {nb_contentious_voxels} voxels with different values !"
+        log.warning(f"Left and right graph files have {nb_contentious_voxels} voxels with different values ! "
                     f"Graph files : {graph_file_left} and {graph_file_left}")
-
     aims.write(vol_skeleton, skeleton_file)
-
-    return 1
-
