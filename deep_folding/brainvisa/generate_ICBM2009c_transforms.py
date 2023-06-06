@@ -55,7 +55,7 @@ from os.path import basename
 from os.path import join
 from os.path import dirname
 
-from deep_folding.brainvisa import exception_handler
+from deep_folding.brainvisa import exception_handler, DeepFoldingError
 from deep_folding.brainvisa.utils.folder import create_folder
 from deep_folding.brainvisa.utils.subjects import get_number_subjects,\
                                                   is_it_a_subject
@@ -130,11 +130,11 @@ def parse_args(argv):
         'then logging.DEBUG is selected.')
 
     args = parser.parse_args(argv)
-
+    suffix = {"R": "right", "L": "left", "F": "full"}
     setup_log(args,
               log_dir=f"{args.output_dir}",
               prog_name=basename(__file__),
-              suffix='right' if args.side == 'R' else 'left')
+              suffix=suffix[args.side])
 
     params = vars(args)
 
@@ -182,10 +182,11 @@ class GraphGenerateTransform:
             raise RuntimeError(f"No graph file! "
                                f"{graph_path} doesn't exist")
         for graph_file in list_graph_file:
-            transform_file = self.get_transform_filename(subject, graph_file)
-            if self.side == "F":
-                graph_file_left, graph_file_right, graph_to_remove = self.get_left_and_right_graph_files(graph_file)
-                if graph_to_remove:
+            try:
+                transform_file = self.get_transform_filename(subject, graph_file)
+                if self.side == "F":
+                    graph_file_left, graph_file_right, graph_to_remove = \
+                            self.get_left_and_right_graph_files(graph_file, list_graph_file)
                     list_graph_file.remove(graph_to_remove)
                     graph_left = aims.read(graph_file_left)
                     graph_right = aims.read(graph_file_right)
@@ -193,23 +194,24 @@ class GraphGenerateTransform:
                         graph_left)
                     g_to_icbm_template_right = aims.GraphManip.getICBM2009cTemplateTransform(
                         graph_right)
-                    if g_to_icbm_template_left == g_to_icbm_template_right:
-                        aims.write(g_to_icbm_template_left, transform_file)
-                    else:
-                        log.error(f"The subject {subject} has different left and right transformations files :"
-                                  f"{g_to_icbm_template_left} and {g_to_icbm_template_right}")
-            else:
-                graph = aims.read(graph_file)
-                g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
-                    graph)
-                aims.write(g_to_icbm_template, transform_file)
-            if not self.bids:
-                break
+                    if g_to_icbm_template_left != g_to_icbm_template_right:
+                        raise DeepFoldingError(f"Left and right transformations files are not the same: "
+                                               f"{g_to_icbm_template_left} and {g_to_icbm_template_right}")
+                    aims.write(g_to_icbm_template_left, transform_file)
+                else:
+                    graph = aims.read(graph_file)
+                    g_to_icbm_template = aims.GraphManip.getICBM2009cTemplateTransform(
+                        graph)
+                    aims.write(g_to_icbm_template, transform_file)
+                if not self.bids:
+                    break
+            except DeepFoldingError as e:
+                log.error(f"Graph file {graph_file} : {e}")
+                continue
 
     def get_transform_filename(self, subject, graph_file):
-        transform_file = (
-            f"{self.transform_dir}/"
-            f"{self.side}transform_to_ICBM2009c_{subject}")
+        transform_file = join(self.transform_dir,
+                              f"{self.side}transform_to_ICBM2009c_{subject}")
         if self.bids:
             session = re.search("ses-([^_/]+)", graph_file)
             acquisition = re.search("acq-([^_/]+)", graph_file)
@@ -223,25 +225,21 @@ class GraphGenerateTransform:
         transform_file += ".trm"
         return transform_file
 
-    @static_method
-    def get_left_and_right_graph_files(self, graph_file):
+    @staticmethod
+    def get_left_and_right_graph_files(graph_file, list_graph_file):
         graph_name = basename(graph_file)
-        if graph_name[0] == "L":
+        if graph_name.startswith("L"):
             graph_file_left = graph_file
             graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
             if graph_file_right not in list_graph_file:
-                log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
-                return str(), str(), str()
-            else:
-                graph_to_remove = graph_file_right
+                raise DeepFoldingError(f"Right graph is missing : {graph_file_right}")
+            graph_to_remove = graph_file_right
         else:
             graph_file_right = graph_file
             graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
             if graph_file_left not in list_graph_file:
-                log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
-                return str(), str(), str()
-            else:
-                graph_to_remove = graph_file_left
+                raise DeepFoldingError(f"Left graph is missing : {graph_file_left}")
+            graph_to_remove = graph_file_left
         return graph_file_left, graph_file_right, graph_to_remove
 
     def compute(self, number_subjects):
