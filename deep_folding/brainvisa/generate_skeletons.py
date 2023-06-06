@@ -55,7 +55,7 @@ from os.path import basename
 from os.path import dirname
 from os.path import join
 
-from deep_folding.brainvisa import exception_handler
+from deep_folding.brainvisa import exception_handler, DeepFoldingError
 from deep_folding.brainvisa.utils.folder import create_folder
 from deep_folding.brainvisa.utils.subjects import \
     get_number_subjects, is_it_a_subject
@@ -143,10 +143,11 @@ def parse_args(argv):
 
     args = parser.parse_args(argv)
 
+    suffix = {"R": "right", "L": "left", "F": "full"}
     setup_log(args,
               log_dir=f"{args.output_dir}",
               prog_name=basename(__file__),
-              suffix='right' if args.side == 'R' else 'left')
+              suffix=suffix[args.side])
 
     params = vars(args)
 
@@ -207,44 +208,49 @@ class GraphConvert2Skeleton:
                          f"{self.path_to_graph}/{self.side}{subject}*.arg"
         list_graph_file = glob.glob(graph_path)
         log.debug(f"list_graph_file = {list_graph_file}")
-        if len(list_graph_file) == 0:
-            raise RuntimeError(f"No graph file! "
-                               f"{graph_path} doesn't exist")
+        try:
+            if len(list_graph_file) == 0:
+                raise FileNotFoundError(f"No graph file! "
+                                        f"{graph_path} doesn't exist")
+        except FileNotFoundError as e:
+            log.error(f"Subject {subject} : {e}")
         for graph_file in list_graph_file:
-            skeleton_file = self.get_skeleton_filename(subject, graph_file)
-            if self.side == "F":
-                graph_file_left, graph_file_right, graph_to_remove = \
-                    self.get_left_and_right_graph_files(subject, graph_file, list_graph_file)
-                if graph_to_remove:
-                    list_graph_file.remove(graph_to_remove)
-                    generate_full_skeleton(graph_file_left,
-                                           graph_file_right,
-                                           skeleton_file,
-                                           self.junction)
-            else:
-                generate_skeleton_from_graph_file(graph_file,
-                                                  skeleton_file,
-                                                  self.junction)
-            if not self.bids:
-                break
+            try:
+                skeleton_file = self.get_skeleton_filename(subject, graph_file)
+                if self.side == "F":
+                    graph_file_left, graph_file_right, graph_to_remove = \
+                        self.get_left_and_right_graph_files(graph_file, list_graph_file)
+                    if graph_to_remove:
+                        list_graph_file.remove(graph_to_remove)
+                        generate_full_skeleton(graph_file_left,
+                                               graph_file_right,
+                                               skeleton_file,
+                                               self.junction)
+                else:
+                    generate_skeleton_from_graph_file(graph_file,
+                                                      skeleton_file,
+                                                      self.junction)
+                if not self.bids:
+                    break
+            except DeepFoldingError as e:
+                log.error(f"Graph file {graph_file} : {e}")
+                continue
 
-    @static_method
-    def get_left_and_right_graph_files(self, subject, graph_file, list_graph_file):
+    @staticmethod
+    def get_left_and_right_graph_files(graph_file, list_graph_file):
         graph_name = basename(graph_file)
         if graph_name[0] == "L":
             graph_file_left = graph_file
             graph_file_right = join(dirname(graph_file), f"R{graph_name[1:]}")
             if graph_file_right not in list_graph_file:
-                log.error(f"The subject {subject} misses a right graph : {graph_file_right}")
-                return str(), str(), str()
+                raise DeepFoldingError(f"Right graph is missing ({graph_file_right})")
             else:
                 graph_to_remove = graph_file_right
         else:
             graph_file_right = graph_file
             graph_file_left = join(dirname(graph_file), f"L{graph_name[1:]}")
             if graph_file_left not in list_graph_file:
-                log.error(f"The subject {subject} misses a left graph : {graph_file_left}")
-                return str(), str(), str()
+                raise DeepFoldingError(f"Left graph is missing ({graph_file_left})")
             else:
                 graph_to_remove = graph_file_left
         return graph_file_left, graph_file_right, graph_to_remove
@@ -264,8 +270,8 @@ class GraphConvert2Skeleton:
         list_subjects = select_subjects_int(list_subjects, number_subjects)
 
         log.info(f"Expected number of subjects = {len(list_subjects)}")
-        log.info(f"list_subjects[:5] = {list_subjects[:5]}")
-        log.debug(f"list_subjects = {list_subjects}")
+        log.info(f"list_subjects[:5]= {list_subjects[:5]}")
+        log.debug(f"list_subjects= {list_subjects}")
 
         # Performs computation on all subjects either serially or in parallel
         if self.parallel:
@@ -283,9 +289,11 @@ class GraphConvert2Skeleton:
 
         # Checks if there is expected number of generated files
         if self.bids:
-            list_graphs = []
-            for sub in list_subjects:
-                list_graphs += [sub for _ in glob.glob(f"{self.src_dir}/{sub}/{self.path_to_graph}")]
+            list_graphs = \
+                [g for g in glob.glob(f"{self.src_dir}/*/{self.path_to_graph}")
+                 if not re.search('.minf$', g)]
+            compare_number_aims_files_with_expected(self.skeleton_dir,
+                                                    list_graphs)
             compare_number_aims_files_with_expected(self.skeleton_dir, list_graphs)
         else:
             compare_number_aims_files_with_expected(self.skeleton_dir, list_subjects)
