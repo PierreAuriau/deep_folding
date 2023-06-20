@@ -245,7 +245,7 @@ def generate_full_skeleton(graph_file_left: str,
     arr_skeleton[~mask] = arr_skeleton_right[~mask]
     arr_skeleton = arr_skeleton.astype(int)
 
-    # Sanity check
+    # Sanity checks
     # FIXME : select good threshold
     threshold = 200
     nb_contentious_voxels = np.count_nonzero(np.logical_and(arr_skeleton_left, arr_skeleton_right))
@@ -254,4 +254,7 @@ def generate_full_skeleton(graph_file_left: str,
     if nb_contentious_voxels > threshold:
         log.warning(f"Left and right graph files have {nb_contentious_voxels} voxels with different values ! "
                     f"Graph files : {graph_file_left} and {graph_file_left}")
+
+    if not is_skeleton(np.asarray(vol_skeleton)):
+        raise DeepFoldingError(f"{skeleton_file} has unexpected skeleton values")
     aims.write(vol_skeleton, skeleton_file)
