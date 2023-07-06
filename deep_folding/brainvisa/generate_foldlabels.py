@@ -50,11 +50,9 @@ import argparse
 import glob
 import re
 import sys
-from os.path import abspath
-from os.path import exists
-from os.path import basename
+from os.path import abspath, exists, basename, join, dirname
 
-from deep_folding.brainvisa import exception_handler
+from deep_folding.brainvisa import exception_handler, DeepFoldingError
 from deep_folding.brainvisa.utils.folder import create_folder
 from deep_folding.brainvisa.utils.subjects import get_number_subjects,\
                                                   is_it_a_subject
@@ -63,7 +61,7 @@ from deep_folding.brainvisa.utils.subjects import select_subjects_int,\
 from deep_folding.brainvisa.utils.logs import setup_log
 from deep_folding.brainvisa.utils.parallel import define_njobs
 from deep_folding.brainvisa.utils.foldlabel import \
-    generate_foldlabel_from_graph_file
+    generate_foldlabel_from_graph_file, generate_full_foldlabel
 from deep_folding.brainvisa.utils.quality_checks import \
     compare_number_aims_files_with_expected, \
     compare_number_aims_files_with_number_in_source, \
@@ -158,6 +156,8 @@ def parse_args(argv):
     params['side'] = args.side
     params['junction'] = args.junction
     params['parallel'] = args.parallel
+    params['bids'] = args.bids
+    params['quality_checks'] = args.quality_checks
     # Checks if nb_subjects is either the string "all" or a positive integer
     params['nb_subjects'] = get_number_subjects(args.nb_subjects)
 
@@ -223,7 +223,7 @@ class GraphConvert2FoldLabel:
         for graph_file in list_graph_file:
             try:
                 foldlabel_file = self.get_foldlabel_filename(subject, graph_file)
-                if self.side == F:
+                if self.side == "F":
                     graph_file_left, graph_file_right, graph_to_remove = \
                         self.get_left_and_right_graph_files(graph_file, list_graph_file)
                     if graph_to_remove:
