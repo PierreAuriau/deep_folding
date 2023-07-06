@@ -193,7 +193,7 @@ def generate_skeleton_from_graph_file(graph_file: str,
 def generate_full_skeleton(graph_file_left: str,
                            graph_file_right: str,
                            skeleton_file: str,
-                           junction: str = _JUNCTION_DEFAULT) -> bool:
+                           junction: str = _JUNCTION_DEFAULT):
     """Generates full skeleton from right and left graph files"""
     graph_left = aims.read(graph_file_left)
     graph_right = aims.read(graph_file_right)

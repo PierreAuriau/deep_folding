@@ -38,7 +38,7 @@
   Typical usage
   -------------
   You can use this program by first entering in the brainvisa environment
-  (here brainvisa 5.0.0 installed with singurity) and launching the script
+  (here brainvisa 5.0.0 installed with singularity) and launching the script
   from the terminal:
   >>> bv bash
   >>> python generate_skeletons.py
