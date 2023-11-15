@@ -106,13 +106,6 @@ def generate_skeleton_thin_junction(
                     continue
                 for i, j, k in voxels:
                     arr_skel[i, j, k] = value
-
-    index = np.nonzero(arr_skel)
-    for i in range(len(index)):
-        log.debug(f'Dimension {i} :' +
-                  f'(Min {np.min(index[i])}, ' +
-                  f'Max {np.max(index[i])})')
-
     return vol_skel
 
 
