@@ -73,61 +73,11 @@ _LABELLING_SESSION_DEFAULT = "deepcnn_session_auto"
 # Defines logger
 log = set_file_logger(__file__)
 
-# Add hull junction
-# Change name of mapping
+
 def remove_ventricle_from_graph(volume, labelled_graph_file):
-    
     arr = np.asarray(volume)
     labelled_graph = aims.read(labelled_graph_file)
-    
-    """
-    # Old version
     for vertex in labelled_graph.vertices():
-        label = vertex.get("label", "unknown")
-        if label.startswith("ventricle"):
-            value = 0
-            for edge in range(len(vertex.edges())):
-                if 'aims_plidepassage' in vertex.edges()[edge]:
-                    voxels_plidepassage = np.array(
-                        vertex.edges()[edge]['aims_plidepassage'][0].keys())
-                    if voxels_plidepassage.shape == (0,):
-                        continue
-                    for i, j, k in voxels_plidepassage:
-                        if arr[i, j, k] == dico['aims_plidepassage']: 
-                            arr[i, j, k] = value
-            for bucket_name in ('aims_bottom', 'aims_other', 'aims_ss'):
-                bucket = vertex.get(bucket_name)
-                if bucket is not None:
-                    voxels = np.array(bucket[0].keys())
-                    for edge in range(len(vertex.edges())):
-                        if 'aims_junction' in vertex.edges()[edge]:
-                            voxels_junction = np.array(
-                                vertex.edges()[edge]['aims_junction'][0].keys())
-                            if voxels_junction.shape == (0,):
-                                continue
-                            for i, j, k in voxels_junction:
-                                if arr[i, j, k] == dico['aims_junction']:
-                                    arr[i, j, k] = value
-
-                    if voxels.shape == (0,):
-                        continue
-                    for i, j, k in voxels:
-                        if arr[i, j, k] == dico['bucket_name']:
-                            arr[i, j, k] = value
-    """
-    # New version
-    # Sorted in ascendent priority
-    """
-    val_aims_ss = 1000
-    add_val = {'aims_other': -1000,
-               'aims_ss': 0,
-               'aims_top': 7000,
-               'aims_bottom': 6000,
-               'aims_junction': 5000,
-               'aims_plidepassage': 4000}
-    """
-    for vertex in labelled_graph.vertices():
-        #val_aims_ss += 1
         label = vertex.get("label", "unknown")
         if label.startswith("ventricle"):
             background = 0
@@ -138,14 +88,8 @@ def remove_ventricle_from_graph(volume, labelled_graph_file):
                     if voxels_plidepassage.shape == (0,):
                         continue
                     for i, j, k in voxels_plidepassage:
-                        #if np.isin(arr[i, j, k], (val_aims_ss + \
-                        #    add_val['aims_plidepassage'], 120)):
-                        if arr[i, j, k] == 120:
-                            arr[i, j, k] = background
-
-            for bucket_name, value in {'aims_bottom': 30,
-                                       'aims_other': 100, 
-                                       'aims_ss': 60}.items():
+                        arr[i, j, k] = background
+            for bucket_name in ('aims_bottom', 'aims_other', 'aims_ss'):
                 bucket = vertex.get(bucket_name)
                 if bucket is not None:
                     for edge in range(len(vertex.edges())):
@@ -155,32 +99,12 @@ def remove_ventricle_from_graph(volume, labelled_graph_file):
                             if voxels_junction.shape == (0,):
                                 continue
                             for i, j, k in voxels_junction:
-                                #if np.isin(arr[i, j, k], (val_aims_ss + \
-                                #    add_val['aims_junction'], 110)):
-                                if arr[i, j, k] == 110:
-                                    arr[i, j, k] = background
-
-                        e = vertex.edges()[edge]
-                        if e.getSyntax() == 'hull_junction':
-                            if 'aims_junction' in vertex.edges()[edge]:
-                                voxels_junction = np.array(
-                                    vertex.edges()[edge]['aims_junction'][0].keys()
-                                    )
-                                if voxels_junction.shape == (0,):
-                                    continue
-                                for i, j, k in voxels_junction:
-                                    #if np.isin(arr[i, j, k], (val_aims_ss + \
-                                    #           add_val['aims_top'], "35")):
-                                    if arr[i, j, k] == 35:
-                                        arr[i, j, k] = background
+                                arr[i, j, k] = background
                     voxels = np.array(bucket[0].keys())
                     if voxels.shape == (0,):
                         continue
                     for i, j, k in voxels:
-                        #if np.isin(arr[i, j, k], 
-                        #           (val_aims_ss + add_val[bucket_name], value)):
-                        if arr[i, j, k] == value:
-                            arr[i, j, k] = background
+                        arr[i, j, k] = background
     return volume
 
 
