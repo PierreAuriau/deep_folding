@@ -72,7 +72,6 @@ def read_convert_write(vol_filename, bucket_filename, mask_dir=None,
 
     else:
         bucket_map, _ = convert_volume_to_bucket(vol)
-
     aims.write(bucket_map, bucket_filename)
 
 
@@ -103,6 +102,10 @@ def parse_args(argv):
     parser.add_argument(
         "-d", "--distmap", type=bool, required=False,
         help='Type of input: skeleton or distmap.')
+    parser.add_argument(
+        "-n", "--nb_subjects", type=int, required=False,
+        help="Number of subjects."
+    )
 
     args = parser.parse_args(argv)
 
@@ -125,13 +128,17 @@ def build_bucket_filename(subject, tgt_dir, mesh):
         return f"{tgt_dir}/{subject}.bck"
 
 
-def loop_over_directory(src_dir, tgt_dir, mask_dir, mesh, distmap):
+def loop_over_directory(src_dir, tgt_dir, mask_dir, mesh, distmap, nb_subjects=None):
     """Loops conversion over input directory
     """
     # Gets and creates all filenames
     filenames = glob.glob(f"{src_dir}/*.nii.gz")
+    if nb_subjects is None:
+        nb_subjects = len(filenames)
+    filenames = filenames[:nb_subjects]
     subjects = [get_basename_without_extension(filename)
                 for filename in filenames]
+
     bucket_filenames = [
         build_bucket_filename(
             subject,
@@ -144,6 +151,7 @@ def loop_over_directory(src_dir, tgt_dir, mask_dir, mesh, distmap):
     # -s /path/to/Rcrops \
     # -t /path/to/Rbuckets
     # Makes the actual conversion
+    print(filenames, bucket_filenames)
     for vol_filename, bucket_filename in tqdm(
             zip(filenames, bucket_filenames), total=len(filenames)):
         read_convert_write(vol_filename=vol_filename,
@@ -164,8 +172,9 @@ def main(argv):
     try:
         # Parsing arguments
         args = parse_args(argv)
+        print(args.mesh, args.mask_dir, args.distmap)
         loop_over_directory(args.src_dir, args.tgt_dir, args.mask_dir,
-                            args.mesh, args.distmap)
+                            args.mesh, args.distmap, args.nb_subjects)
     except SystemExit as exc:
         if exc.code != 0:
             six.reraise(*sys.exc_info())
