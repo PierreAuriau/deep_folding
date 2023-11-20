@@ -23,7 +23,7 @@ def resample(input_image: Union[str, aims.Volume],
              transformation: Union[str, aims.AffineTransformation3d],
              output_vs: tuple = None,
              background: int = 0,
-             values: np.array = None,
+             values: list = None,
              verbose: bool = False,
              do_skel: bool = False,
              immortals: list = None) -> aims.Volume:
@@ -41,7 +41,7 @@ def resample(input_image: Union[str, aims.Volume],
         background: int
             Background value (default: 0)
         values: []
-            Array of unique values ordered by ascendent priority
+            List of unique values ordered by ascendent priority
             without background. If not given,
             priority is set by ascendent values
         do_skel:
@@ -117,16 +117,18 @@ def resample(input_image: Union[str, aims.Volume],
     log.debug("Background resampling: {}s".format(time() - tic))
     tic = time()
 
+    unique_values_vol = sorted(np.unique(vol_dt[vol_dt != background]))
     if values is None:
-        values = sorted(np.unique(vol_dt[vol_dt != background]))
-
+        values = unique_values_vol
+    else:
+        values = [v for v in values if v in unique_values_vol]
     # if values is not None, values are given in ascending order
     # Note also that background shall not be given in values
 
     if aims.version() >= (5, 2):
         reorder = False
         toc = time()
-        if values != sorted(np.unique(vol_dt[vol_dt != background])):
+        if values != unique_values_vol:
             print('changing values')
             reorder = True
             old_vol = vol
@@ -208,10 +210,10 @@ def resample(input_image: Union[str, aims.Volume],
             print('restoring values')
             reordered = aims.Volume(resampled)
             repl = {i+1: v for i, v in enumerate(values)}
-            replacer = getattr(
-                aims, 'Replacer_{}'.format(aims.typeCode(old_resmp.np.dtype)))
             old_vals = {v: v for v in np.unique(old_resmp.np)
                         if v not in values}
+            replacer = getattr(
+                aims, 'Replacer_{}'.format(aims.typeCode(old_resmp.np.dtype)))
             replacer.replace(old_resmp, resampled, old_vals)
             replacer.replace(reordered, resampled, repl)
 

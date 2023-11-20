@@ -93,7 +93,7 @@ _SKELETON_FILENAME = "skeleton_generated"
 _FOLDLABEL_FILENAME = "foldlabel"
 _DISTMAP_FILENAME = "distmap_generated_"
 _RESAMPLED_SKELETON_FILENAME = "resampled_skeleton"
-_RESAMPELD_FOLDLABEL_FILENAME = "resampled_foldlabel"
+_RESAMPLED_FOLDLABEL_FILENAME = "resampled_foldlabel"
 _RESAMPLED_DISTMAP_FILENAME = "resampled_distmap_"
 # Defines logger
 log = set_file_logger(__file__)
@@ -101,7 +101,8 @@ log = set_file_logger(__file__)
 
 def resample_one_skeleton(input_image,
                           out_voxel_size,
-                          transformation):
+                          transformation,
+                          do_skel):
     """Resamples one skeleton file
 
     Args
@@ -123,14 +124,15 @@ def resample_one_skeleton(input_image,
     # for the bottom value (30) and the simple surface value (60)
     # with respect to the natural order
     # We don't give background, which is the interior 0
-    values = np.array([11, 60, 30, 35, 10, 20, 40,
-                      50, 70, 80, 90, 100, 110, 120])
-
+    values = [11, 60, 30, 35, 10, 20, 40,
+              50, 70, 80, 90, 100, 110, 120]
+    log.debug(f'Do skeleton : {do_skel}')    
     # Normalization and resampling of skeleton images
     resampled = resample(input_image=input_image,
                          output_vs=out_voxel_size,
                          transformation=transformation,
-                         values=values)
+                         values=values,
+                         do_skel=do_skel)
     return resampled
 
 
@@ -385,7 +387,7 @@ class SkeletonResampler(FileResampler):
 
     def __init__(self, src_dir, resampled_dir, transform_dir,
                  side, out_voxel_size, parallel, src_filename,
-                 output_filename
+                 output_filename, do_skel
                  ):
         """Inits with list of directories
 
@@ -418,9 +420,13 @@ class SkeletonResampler(FileResampler):
 
         # subjects are detected as the nifti file names under src_dir
         self.expr = f"^.{src_filename}_(.*).nii.gz$"
+
+        self.do_skel = do_skel
         
-    @staticmethod
-    def resample_one_subject(src_file: str,
+    # @staticmethod
+    # FIXME : do we need static method ?
+    def resample_one_subject(self,
+                             src_file: str,
                              out_voxel_size: float,
                              transform_file: str,
                              resampled_file=None):
@@ -430,7 +436,8 @@ class SkeletonResampler(FileResampler):
         from parent class FileResampler"""
         resampled = resample_one_skeleton(input_image=src_file,
                                           out_voxel_size=out_voxel_size,
-                                          transformation=transform_file)
+                                          transformation=transform_file,
+                                          do_skel= self.do_skel)
         aims.write(resampled, resampled_file)
 
 
@@ -574,6 +581,10 @@ def parse_args(argv):
         "-i", "--side", type=str, default=_SIDE_DEFAULT,
         help='Hemisphere side (either L or R). Default is : ' + _SIDE_DEFAULT)
     parser.add_argument(
+        "-d", "--do_skel", type=bool, default=False,
+        help='If set to True, launches skeletonization of volumes. '
+             'Defaut is : False')
+    parser.add_argument(
         "-a", "--parallel", default=False, action='store_true',
         help='if set (-a), launches computation in parallel')
     parser.add_argument(
@@ -621,6 +632,7 @@ def parse_args(argv):
     params['nb_subjects'] = get_number_subjects(args.nb_subjects)
     params['src_filename'] = args.src_filename
     params['output_filename'] = args.output_filename
+    params['do_skel'] = args.do_skel
     return params
 
 
@@ -634,7 +646,8 @@ def resample_files(
         parallel=False,
         number_subjects=_ALL_SUBJECTS,
         src_filename=_SKELETON_FILENAME,
-        output_filename=_RESAMPLED_SKELETON_FILENAME):
+        output_filename=_RESAMPLED_SKELETON_FILENAME,
+        do_skel=False):
 
     if input_type == "skeleton":
         src_filename = (_SKELETON_FILENAME
@@ -651,7 +664,8 @@ def resample_files(
             out_voxel_size=out_voxel_size,
             parallel=parallel,
             src_filename=src_filename,
-            output_filename=output_filename)
+            output_filename=output_filename,
+            do_skel=do_skel)
     elif input_type == "foldlabel":
         src_filename = (_FOLDLABEL_FILENAME
                         if src_filename is None
@@ -708,7 +722,8 @@ def main(argv):
         out_voxel_size=params['out_voxel_size'],
         parallel=params['parallel'],
         src_filename=params['src_filename'],
-        output_filename=params['output_filename']
+        output_filename=params['output_filename'],
+        do_skel=params["do_skel"]
     )
 
 
