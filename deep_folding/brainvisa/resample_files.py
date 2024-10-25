@@ -124,15 +124,17 @@ def resample_one_skeleton(input_image,
     # for the bottom value (30) and the simple surface value (60)
     # with respect to the natural order
     # We don't give background, which is the interior 0
-    values = [11, 60, 30, 35, 10, 20, 40,
-              50, 70, 80, 90, 100, 110, 120]
+    
+    values = [100, 60, 10, 20, 40, 50, 70, 80, 110, 120, 30, 35]
+    
     log.debug(f'Do skeleton : {do_skel}')    
     # Normalization and resampling of skeleton images
     resampled = resample(input_image=input_image,
                          output_vs=out_voxel_size,
                          transformation=transformation,
                          values=values,
-                         do_skel=do_skel)
+                         do_skel=do_skel,
+                         redo_classif=False)
     return resampled
 
 
