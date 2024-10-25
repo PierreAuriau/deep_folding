@@ -35,7 +35,7 @@
 
 """ Remove ventricle from a volume through the automatic labelled graph
 by Morphologist.
-Be careful :
+/!\ Be careful :
 With the BIDS argument, the session-acquisition-run Morphologist folder
 should be replaced by a '*' in the <path_to_graph> argument.
 """
@@ -74,32 +74,23 @@ _LABELLING_SESSION_DEFAULT = "deepcnn_session_auto"
 log = set_file_logger(__file__)
 
 
-def remove_ventricle_from_graph(volume, labelled_graph_file):
+def remove_ventricle_from_graph(volume, labelled_graph, background = 0):
     arr = np.asarray(volume)
-    labelled_graph = aims.read(labelled_graph_file)
     for vertex in labelled_graph.vertices():
         label = vertex.get("label", "unknown")
         if label.startswith("ventricle"):
-            background = 0
             for edge in range(len(vertex.edges())):
-                if 'aims_plidepassage' in vertex.edges()[edge]:
-                    voxels_plidepassage = np.array(
-                        vertex.edges()[edge]['aims_plidepassage'][0].keys())
-                    if voxels_plidepassage.shape == (0,):
-                        continue
-                    for i, j, k in voxels_plidepassage:
-                        arr[i, j, k] = background
+                for bucket_name in ("aims_plidepassage", 'aims_junction'):
+                    if bucket_name in vertex.edges()[edge]:
+                        voxels = np.array(
+                            vertex.edges()[edge][bucket_name][0].keys())
+                        if voxels.shape == (0,):
+                            continue
+                        for i, j, k in voxels:
+                            arr[i, j, k] = background
             for bucket_name in ('aims_bottom', 'aims_other', 'aims_ss'):
                 bucket = vertex.get(bucket_name)
                 if bucket is not None:
-                    for edge in range(len(vertex.edges())):
-                        if 'aims_junction' in vertex.edges()[edge]:
-                            voxels_junction = np.array(
-                                vertex.edges()[edge]['aims_junction'][0].keys())
-                            if voxels_junction.shape == (0,):
-                                continue
-                            for i, j, k in voxels_junction:
-                                arr[i, j, k] = background
                     voxels = np.array(bucket[0].keys())
                     if voxels.shape == (0,):
                         continue
@@ -248,8 +239,9 @@ class RemoveVentricleFromVolume:
             volume = aims.read(src_file)
             for graph_file in labelled_graph_list:
                 if exists(graph_file):
+                    labelled_graph = aims.read(graph_file)
                     volume = remove_ventricle_from_graph(
-                        volume, graph_file)
+                        volume, labelled_graph)
                 else:
                     raise FileNotFoundError(f"Labelled graph not found : \
                                             {graph_file}")
